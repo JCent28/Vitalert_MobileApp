@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Patient Vitals - Pedro Garcia</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container": "#e5eeff",
+                      "error-container": "#ffdad6",
+                      "surface": "#f8f9ff",
+                      "on-tertiary-fixed-variant": "#71370f",
+                      "tertiary-container": "#a25d33",
+                      "secondary-container": "#a0f399",
+                      "surface-variant": "#d3e4fe",
+                      "on-background": "#0b1c30",
+                      "surface-container-high": "#dce9ff",
+                      "on-primary-fixed": "#002021",
+                      "primary-fixed": "#96f1f5",
+                      "surface-container-highest": "#d3e4fe",
+                      "on-primary-fixed-variant": "#004f52",
+                      "primary": "#006063",
+                      "secondary": "#1b6d24",
+                      "surface-tint": "#00696d",
+                      "primary-container": "#007b7f",
+                      "on-primary": "#ffffff",
+                      "on-tertiary-container": "#fff0e9",
+                      "on-tertiary-fixed": "#331200",
+                      "secondary-fixed-dim": "#88d982",
+                      "surface-container-lowest": "#ffffff",
+                      "inverse-primary": "#7ad5d9",
+                      "on-surface-variant": "#3e4949",
+                      "inverse-on-surface": "#eaf1ff",
+                      "on-tertiary": "#ffffff",
+                      "tertiary-fixed": "#ffdbc9",
+                      "surface-bright": "#f8f9ff",
+                      "surface-container-low": "#eff4ff",
+                      "on-secondary-container": "#217128",
+                      "on-error": "#ffffff",
+                      "on-primary-container": "#c4fdff",
+                      "on-secondary-fixed-variant": "#005312",
+                      "on-secondary": "#ffffff",
+                      "on-secondary-fixed": "#002204",
+                      "error": "#ba1a1a",
+                      "inverse-surface": "#213145",
+                      "outline-variant": "#bdc9c9",
+                      "on-error-container": "#93000a",
+                      "tertiary-fixed-dim": "#ffb68e",
+                      "background": "#f8f9ff",
+                      "surface-dim": "#cbdbf5",
+                      "secondary-fixed": "#a3f69c",
+                      "on-surface": "#0b1c30",
+                      "outline": "#6e7979",
+                      "tertiary": "#84451d",
+                      "primary-fixed-dim": "#7ad5d9"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "base": "8px",
+                      "lg": "24px",
+                      "sm": "8px",
+                      "margin-desktop": "32px",
+                      "xs": "4px",
+                      "margin-mobile": "16px",
+                      "md": "16px",
+                      "xl": "32px",
+                      "gutter": "16px"
+              },
+              "fontFamily": {
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "display-vitals": [
+                              "Inter"
+                      ],
+                      "metric-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "label-caps": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-vitals": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "metric-mono": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "label-caps": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-lg text-body-lg min-h-screen flex flex-col pb-24 md:pb-0">
+
+<!-- Shared Vitalert Global Quick Navigation Bar -->
+<div id="vitalert-quick-nav" class="fixed top-0 left-0 right-0 z-[100] bg-[#004f52]/95 backdrop-blur-md text-white px-4 py-2 flex items-center justify-between shadow-md text-xs font-mono">
+  <div class="flex items-center gap-2">
+    <span class="w-2.5 h-2.5 rounded-full bg-[#7ad5d9] animate-pulse"></span>
+    <span class="font-bold tracking-wider text-[#96f1f5]">VITALERT MONITORING</span>
+    <span class="hidden sm:inline text-teal-200/70">| Clinical Prototype</span>
+  </div>
+  <div class="flex items-center gap-1 sm:gap-2">
+    <a href="signin.html" class="px-2 py-1 rounded transition-colors hover:bg-white/10 text-teal-100">Sign In</a>
+    <a href="dashboard.html" class="px-2 py-1 rounded transition-colors hover:bg-white/10 text-teal-100">Dashboard</a>
+    <a href="patient-vitals.html" class="px-2 py-1 rounded transition-colors bg-[#007b7f] text-white font-bold">Patient Vitals</a>
+    <a href="alerts.html" class="px-2 py-1 rounded transition-colors hover:bg-white/10 text-teal-100">Alerts</a>
+    <a href="patient-log.html" class="px-2 py-1 rounded transition-colors hover:bg-white/10 text-teal-100">Log</a>
+  </div>
+</div>
+
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline flat no shadows flex justify-between items-center w-full px-margin-mobile h-16 sticky top-0 z-40">
+<div class="flex items-center gap-xs">
+<button class="p-2 hover:bg-surface-variant/50 dark:hover:bg-surface-variant/20 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant">arrow_back</span>
+</button>
+<span class="text-headline-md font-headline-md font-semibold text-primary dark:text-primary-fixed">VITALERT</span>
+</div>
+<div class="flex items-center gap-sm">
+<div class="flex items-center gap-xs bg-error-container text-on-error-container px-3 py-1 rounded-full">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+<span class="text-label-caps font-label-caps">LIVE</span>
+</div>
+<button class="p-2 hover:bg-surface-variant/50 dark:hover:bg-surface-variant/20 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed">sensors</span>
+</button>
+</div>
+</header>
+<main class="flex-1 p-margin-mobile md:p-margin-desktop md:max-w-5xl mx-auto w-full grid grid-cols-1 md:grid-cols-12 gap-md md:gap-lg">
+<!-- Patient Header Card -->
+<div class="md:col-span-12 bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center justify-between">
+<div class="flex items-center gap-md">
+<img class="w-16 h-16 rounded-full object-cover border border-outline-variant" data-alt="A professional headshot of a middle-aged hispanic man in a clinical setting, soft natural lighting, high resolution, minimalist medical environment, calm expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBU8yAUUhVxEECDY-40TzCH8sOz_cKajtXk70ufsEkG-nzApvWuNCGVmLS3CchFYytWRBO5cVSttUz1x_ydVhhy2hoBhuaCjv3aFNPXS-MpTreAE5o94I4o52E53G_kIwWIW3PwwHixJko1-SvKEFrLy9JJe-SZfRTF6FmmcL9deZLJ1LPuPjIFuqJVYiSwcphjzOd488bt7wJbXIFlC_wz60hxO1I8TjKyHCONs6yQw3AnARkGdq6Hlw"/>
+<div>
+<h1 class="text-headline-lg font-headline-lg text-on-surface">Pedro Garcia</h1>
+<p class="text-body-md font-body-md text-on-surface-variant">Chair 3 • Session 3</p>
+</div>
+</div>
+<div class="bg-error/10 text-error px-3 py-1 rounded-full border border-error/20">
+<span class="text-label-caps font-label-caps">CRITICAL</span>
+</div>
+</div>
+<!-- Alert Section -->
+<div class="md:col-span-12 bg-error-container border border-error rounded-xl p-md flex flex-col md:flex-row md:items-center justify-between gap-md shadow-[0_0_0_2px_rgba(186,26,26,0.2)]">
+<div class="flex items-start gap-md">
+<span class="material-symbols-outlined text-on-error-container mt-1" style="font-variation-settings: 'FILL' 1;">warning</span>
+<div>
+<h2 class="text-headline-md font-headline-md text-on-error-container">Critical — Heart Rate</h2>
+<p class="text-body-md font-body-md text-on-error-container/80 mt-1">Threshold exceeded for 30s</p>
+</div>
+</div>
+<button class="bg-error text-on-error px-6 py-3 rounded-lg text-label-caps font-label-caps hover:opacity-90 transition-opacity w-full md:w-auto">ACKNOWLEDGE</button>
+</div>
+<!-- Vitals Column -->
+<div class="md:col-span-8 flex flex-col gap-md">
+<!-- Heart Rate Card -->
+<div class="bg-surface-container-lowest border-2 border-error rounded-xl p-md flex flex-col relative overflow-hidden">
+<div class="flex justify-between items-start mb-sm relative z-10">
+<div class="flex items-center gap-sm text-error">
+<span class="material-symbols-outlined">favorite</span>
+<span class="text-label-caps font-label-caps">HEART RATE</span>
+</div>
+<div class="bg-error/10 text-error px-2 py-0.5 rounded-full">
+<span class="text-label-caps font-label-caps">CRITICAL</span>
+</div>
+</div>
+<div class="flex items-baseline gap-xs mb-lg relative z-10">
+<span class="text-display-vitals font-display-vitals text-error">142</span>
+<span class="text-body-lg font-body-lg text-error/80">BPM</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1/2 opacity-20 pointer-events-none">
+<svg class="w-full h-full preserve-aspect-none stroke-error" fill="none" stroke-width="1.5" viewbox="0 0 100 50">
+<path d="M0 40 L10 40 L15 10 L25 50 L35 40 L45 40 L50 20 L60 45 L70 40 L80 40 L85 15 L95 45 L100 40"></path>
+</svg>
+</div>
+</div>
+<!-- Blood Oxygen Card -->
+<div class="bg-surface-container-lowest border border-tertiary-container rounded-xl p-md flex flex-col relative overflow-hidden">
+<div class="flex justify-between items-start mb-sm relative z-10">
+<div class="flex items-center gap-sm text-tertiary-container">
+<span class="material-symbols-outlined">water_drop</span>
+<span class="text-label-caps font-label-caps">BLOOD OXYGEN</span>
+</div>
+<div class="bg-tertiary-container/10 text-tertiary-container px-2 py-0.5 rounded-full">
+<span class="text-label-caps font-label-caps">WARNING</span>
+</div>
+</div>
+<div class="flex items-baseline gap-xs mb-lg relative z-10">
+<span class="text-display-vitals font-display-vitals text-on-surface">88</span>
+<span class="text-body-lg font-body-lg text-on-surface-variant">%</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1/2 opacity-20 pointer-events-none">
+<svg class="w-full h-full preserve-aspect-none stroke-tertiary-container" fill="none" stroke-width="1.5" viewbox="0 0 100 50">
+<path d="M0 30 Q 25 35 50 30 T 100 30"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Recent Readings -->
+<div class="md:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col">
+<h3 class="text-headline-md font-headline-md text-on-surface mb-md">Recent Readings</h3>
+<div class="flex flex-col gap-sm">
+<!-- Reading Item -->
+<div class="flex items-center justify-between py-sm border-b border-outline-variant/50 last:border-0">
+<span class="text-metric-mono font-metric-mono text-on-surface-variant">14:00</span>
+<div class="flex gap-md">
+<span class="text-metric-mono font-metric-mono text-on-surface">128 BPM</span>
+<span class="text-metric-mono font-metric-mono text-on-surface">91%</span>
+</div>
+<span class="text-label-caps font-label-caps text-tertiary-container bg-tertiary-container/10 px-2 py-0.5 rounded">WARN</span>
+</div>
+<!-- Reading Item -->
+<div class="flex items-center justify-between py-sm border-b border-outline-variant/50 last:border-0">
+<span class="text-metric-mono font-metric-mono text-on-surface-variant">13:00</span>
+<div class="flex gap-md">
+<span class="text-metric-mono font-metric-mono text-on-surface">115 BPM</span>
+<span class="text-metric-mono font-metric-mono text-on-surface">94%</span>
+</div>
+<span class="text-label-caps font-label-caps text-primary bg-primary/10 px-2 py-0.5 rounded">OK</span>
+</div>
+<!-- Reading Item -->
+<div class="flex items-center justify-between py-sm border-b border-outline-variant/50 last:border-0">
+<span class="text-metric-mono font-metric-mono text-on-surface-variant">12:00</span>
+<div class="flex gap-md">
+<span class="text-metric-mono font-metric-mono text-on-surface">110 BPM</span>
+<span class="text-metric-mono font-metric-mono text-on-surface">95%</span>
+</div>
+<span class="text-label-caps font-label-caps text-primary bg-primary/10 px-2 py-0.5 rounded">OK</span>
+</div>
+</div>
+<button class="mt-auto pt-md text-primary font-label-caps text-label-caps hover:underline text-center w-full">VIEW FULL LOG</button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden bg-surface dark:bg-surface border-t border-outline-variant dark:border-outline flat no shadows fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2 h-16">
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed hover:opacity-80 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-label-caps font-label-caps mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="text-label-caps font-label-caps mt-1">Alerts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="text-label-caps font-label-caps mt-1">Log</span>
+</a>
+</nav>
+</body></html>

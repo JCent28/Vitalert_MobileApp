@@ -1,0 +1,70 @@
+{
+  "name": "projects/11127492466121189818",
+  "projectId": "11127492466121189818",
+  "title": "Vitalert Patient Monitoring System",
+  "visibility": "PRIVATE",
+  "projectType": "TEXT_TO_UI_PRO",
+  "origin": "STITCH",
+  "deviceType": "MOBILE",
+  "designTheme": {
+    "colorMode": "LIGHT",
+    "font": "INTER",
+    "roundness": "ROUND_FOUR",
+    "customColor": "#007b7f",
+    "headlineFont": "INTER",
+    "bodyFont": "INTER",
+    "labelFont": "JETBRAINS_MONO",
+    "namedColors": {
+      "primary": "#006063",
+      "primary_container": "#007b7f",
+      "secondary": "#1b6d24",
+      "secondary_container": "#a0f399",
+      "surface": "#f8f9ff",
+      "surface_container": "#e5eeff",
+      "surface_container_lowest": "#ffffff",
+      "on_surface": "#0b1c30",
+      "error": "#ba1a1a",
+      "error_container": "#ffdad6"
+    }
+  },
+  "screens": {
+    "signin": {
+      "id": "a32ea61e5503464e8390d12ccacb51c0",
+      "sourceScreen": "projects/11127492466121189818/screens/a32ea61e5503464e8390d12ccacb51c0",
+      "title": "VITALERT - Sign In",
+      "width": 780,
+      "height": 1768
+    },
+    "dashboard": {
+      "id": "64175728c70847d8b70df6d7f828a22c",
+      "sourceScreen": "projects/11127492466121189818/screens/64175728c70847d8b70df6d7f828a22c",
+      "title": "VITALERT - Dashboard",
+      "width": 780,
+      "height": 2790
+    },
+    "patient-vitals": {
+      "id": "70fbde6e6b4a4d49ae044763a1d8ea92",
+      "sourceScreen": "projects/11127492466121189818/screens/70fbde6e6b4a4d49ae044763a1d8ea92",
+      "title": "Patient Vitals - Pedro Garcia",
+      "width": 780,
+      "height": 2068
+    },
+    "alerts": {
+      "id": "23d2f0d51c4741499c48fe68d3c3c59c",
+      "sourceScreen": "projects/11127492466121189818/screens/23d2f0d51c4741499c48fe68d3c3c59c",
+      "title": "VITALERT - Alerts",
+      "width": 780,
+      "height": 1768
+    },
+    "patient-log": {
+      "id": "7ee8f7621f62456aa85ead1d11aeca59",
+      "sourceScreen": "projects/11127492466121189818/screens/7ee8f7621f62456aa85ead1d11aeca59",
+      "title": "VITALERT - Patient Log",
+      "width": 780,
+      "height": 2344
+    }
+  },
+  "metadata": {
+    "userRole": "OWNER"
+  }
+}

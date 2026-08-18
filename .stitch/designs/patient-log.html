@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VITALERT - Patient Log</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#e5eeff",
+                        "error-container": "#ffdad6",
+                        "surface": "#f8f9ff",
+                        "on-tertiary-fixed-variant": "#71370f",
+                        "tertiary-container": "#a25d33",
+                        "secondary-container": "#a0f399",
+                        "surface-variant": "#d3e4fe",
+                        "on-background": "#0b1c30",
+                        "surface-container-high": "#dce9ff",
+                        "on-primary-fixed": "#002021",
+                        "primary-fixed": "#96f1f5",
+                        "surface-container-highest": "#d3e4fe",
+                        "on-primary-fixed-variant": "#004f52",
+                        "primary": "#006063",
+                        "secondary": "#1b6d24",
+                        "surface-tint": "#00696d",
+                        "primary-container": "#007b7f",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#fff0e9",
+                        "on-tertiary-fixed": "#331200",
+                        "secondary-fixed-dim": "#88d982",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#7ad5d9",
+                        "on-surface-variant": "#3e4949",
+                        "inverse-on-surface": "#eaf1ff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#ffdbc9",
+                        "surface-bright": "#f8f9ff",
+                        "surface-container-low": "#eff4ff",
+                        "on-secondary-container": "#217128",
+                        "on-error": "#ffffff",
+                        "on-primary-container": "#c4fdff",
+                        "on-secondary-fixed-variant": "#005312",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#002204",
+                        "error": "#ba1a1a",
+                        "inverse-surface": "#213145",
+                        "outline-variant": "#bdc9c9",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb68e",
+                        "background": "#f8f9ff",
+                        "surface-dim": "#cbdbf5",
+                        "secondary-fixed": "#a3f69c",
+                        "on-surface": "#0b1c30",
+                        "outline": "#6e7979",
+                        "tertiary": "#84451d",
+                        "primary-fixed-dim": "#7ad5d9"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "base": "8px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "margin-desktop": "32px",
+                        "xs": "4px",
+                        "margin-mobile": "16px",
+                        "md": "16px",
+                        "xl": "32px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-vitals": ["Inter"],
+                        "metric-mono": ["JetBrains Mono"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "display-vitals": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "metric-mono": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="pb-24">
+<!-- TopAppBar -->
+<header class="bg-surface border-b border-outline-variant docked full-width top-0 z-40 sticky">
+<div class="flex justify-between items-center w-full px-margin-mobile h-16">
+<button class="text-primary hover:bg-surface-variant/50 transition-colors duration-200 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<div class="flex flex-col items-center">
+<h1 class="text-headline-md font-headline-md font-semibold text-primary">VITALERT</h1>
+<span class="text-label-caps font-label-caps text-on-surface-variant">PATIENT LOG - JUN 16, 2026</span>
+</div>
+<button class="text-primary hover:bg-surface-variant/50 transition-colors duration-200 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">sensors</span>
+</button>
+</div>
+</header>
+<main class="px-margin-mobile md:px-margin-desktop py-lg max-w-5xl mx-auto space-y-lg">
+<!-- Patient Pills Horizontal Scroll -->
+<section class="overflow-x-auto hide-scrollbar -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+<div class="flex space-x-base pb-2">
+<button class="flex-shrink-0 px-4 py-2 rounded-full border-2 border-primary bg-surface-container text-primary text-body-md font-body-md font-semibold flex items-center space-x-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+<span>Pedro Garcia</span>
+</button>
+<button class="flex-shrink-0 px-4 py-2 rounded-full border border-outline-variant bg-surface text-on-surface-variant text-body-md font-body-md hover:bg-surface-variant/50 transition-colors">
+                    Ana Lim
+                </button>
+<button class="flex-shrink-0 px-4 py-2 rounded-full border border-outline-variant bg-surface text-on-surface-variant text-body-md font-body-md hover:bg-surface-variant/50 transition-colors">
+                    Juan dela Cruz
+                </button>
+<button class="flex-shrink-0 px-4 py-2 rounded-full border border-outline-variant bg-surface text-on-surface-variant text-body-md font-body-md hover:bg-surface-variant/50 transition-colors">
+                    Maria Santos
+                </button>
+</div>
+</section>
+<!-- Selected Patient Summary Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h2 class="text-headline-md font-headline-md text-on-surface">Pedro Garcia</h2>
+<p class="text-body-md font-body-md text-on-surface-variant">Session 3 - June 16, 2026</p>
+</div>
+<div class="bg-secondary/10 px-3 py-1 rounded-full border border-secondary/20">
+<span class="text-label-caps font-label-caps text-secondary">ONGOING</span>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-md">
+<div class="flex flex-col">
+<span class="text-label-caps font-label-caps text-on-surface-variant mb-xs">LOCATION</span>
+<span class="text-body-lg font-body-lg text-on-surface">Chair 3</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-caps font-label-caps text-on-surface-variant mb-xs">START TIME</span>
+<span class="text-body-lg font-body-lg text-on-surface">12:00 PM</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-caps font-label-caps text-on-surface-variant mb-xs">PRIMARY NURSE</span>
+<span class="text-body-lg font-body-lg text-on-surface">Rosa M.</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-caps font-label-caps text-on-surface-variant mb-xs">DURATION</span>
+<span class="text-body-lg font-body-lg text-on-surface">2h 45m</span>
+</div>
+</div>
+</section>
+<!-- Hourly Readings Table -->
+<section class="space-y-md">
+<h3 class="text-headline-md font-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+                Hourly Readings
+            </h3>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant text-label-caps font-label-caps text-on-surface-variant">
+<th class="p-4 font-semibold">TIME</th>
+<th class="p-4 font-semibold">HR (BPM)</th>
+<th class="p-4 font-semibold">SpO2 (%)</th>
+<th class="p-4 font-semibold">STATUS</th>
+</tr>
+</thead>
+<tbody class="text-body-md font-body-md text-on-surface divide-y divide-outline-variant">
+<tr class="hover:bg-surface-variant/20 transition-colors">
+<td class="p-4 font-metric-mono text-metric-mono text-on-surface-variant">14:00</td>
+<td class="p-4 font-metric-mono text-metric-mono">115</td>
+<td class="p-4 font-metric-mono text-metric-mono">92</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-tertiary/10 text-tertiary text-label-caps font-label-caps">WARNING</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/20 transition-colors">
+<td class="p-4 font-metric-mono text-metric-mono text-on-surface-variant">13:00</td>
+<td class="p-4 font-metric-mono text-metric-mono">98</td>
+<td class="p-4 font-metric-mono text-metric-mono">96</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-secondary/10 text-secondary text-label-caps font-label-caps">NORMAL</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/20 transition-colors">
+<td class="p-4 font-metric-mono text-metric-mono text-on-surface-variant">12:00</td>
+<td class="p-4 font-metric-mono text-metric-mono">95</td>
+<td class="p-4 font-metric-mono text-metric-mono">98</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-secondary/10 text-secondary text-label-caps font-label-caps">NORMAL</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- Alert Events Section -->
+<section class="space-y-md">
+<h3 class="text-headline-md font-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-error">warning</span>
+                Alert Events
+            </h3>
+<div class="relative pl-6 border-l-2 border-outline-variant ml-4 space-y-6">
+<!-- Critical Alert Item -->
+<div class="relative">
+<div class="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-error ring-4 ring-surface"></div>
+<div class="bg-surface-container-lowest border border-error/30 rounded-xl p-md shadow-sm">
+<div class="flex flex-wrap justify-between items-start gap-2 mb-2">
+<div class="flex items-center gap-3">
+<span class="text-body-md font-body-md font-semibold text-on-surface">14:32</span>
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-error/10 text-error text-label-caps font-label-caps">CRITICAL</span>
+</div>
+<div class="flex gap-4 text-metric-mono font-metric-mono text-sm">
+<span class="text-on-surface-variant"><span class="text-error font-bold">142</span> BPM</span>
+<span class="text-on-surface-variant"><span class="text-error font-bold">88</span>% SpO2</span>
+</div>
+</div>
+<p class="text-body-md font-body-md text-on-surface mb-3">SpO2 dropped below 90% alongside tachycardia.</p>
+<div class="bg-surface-container p-3 rounded-lg flex items-start gap-2 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-base">check_circle</span>
+<p>Acknowledged by <span class="font-semibold text-on-surface">Rosa M.</span> at 14:33. Oxygen flow increased.</p>
+</div>
+</div>
+</div>
+<!-- Warning Alert Item -->
+<div class="relative">
+<div class="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-tertiary ring-4 ring-surface"></div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm opacity-80">
+<div class="flex flex-wrap justify-between items-start gap-2 mb-2">
+<div class="flex items-center gap-3">
+<span class="text-body-md font-body-md font-semibold text-on-surface">13:45</span>
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-tertiary/10 text-tertiary text-label-caps font-label-caps">WARNING</span>
+</div>
+<div class="flex gap-4 text-metric-mono font-metric-mono text-sm">
+<span class="text-on-surface-variant"><span class="text-tertiary font-bold">110</span> BPM</span>
+<span class="text-on-surface-variant"><span class="text-on-surface font-bold">94</span>% SpO2</span>
+</div>
+</div>
+<p class="text-body-md font-body-md text-on-surface">Elevated heart rate detected during position change.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface border-t border-outline-variant docked full-width bottom-0 fixed w-full z-50 flex justify-around items-center px-4 py-2 h-16 md:hidden">
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:opacity-80 scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="text-label-caps font-label-caps mt-1">Dashboard</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:opacity-80 scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+<span class="text-label-caps font-label-caps mt-1">Alerts</span>
+</button>
+<button class="flex flex-col items-center justify-center text-primary hover:opacity-80 scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assignment</span>
+<span class="text-label-caps font-label-caps mt-1">Log</span>
+</button>
+</nav>
+<!-- Desktop Side Nav Spacer (if applicable for larger screens based on generic layout, though this specific requirement didn't ask for sidenav, adding space for general layout sanity) -->
+<div class="hidden md:block h-16"></div>
+</body></html>
