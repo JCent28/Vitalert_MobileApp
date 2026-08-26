@@ -68,36 +68,36 @@
         </div>
       </div>
 
-      <!-- Quick Status Counter Pills -->
+      <!-- Status Counter Pills -->
       <div class="flex gap-2 overflow-x-auto pb-1 mt-3.5 hide-scrollbar">
-        <div id="critPill" class="flex items-center gap-1.5 bg-white border border-rose-200 rounded-full px-3 py-1 text-xs shadow-xs shrink-0">
-          <div class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></div>
+        <a href="alerts.html" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-rose-200 rounded-full px-3 py-1 text-xs shadow-xs shrink-0 transition-colors">
+          <div class="w-2 h-2 rounded-full bg-rose-500"></div>
           <span class="text-slate-500 font-medium">Critical:</span>
-          <span id="critCount" class="font-black text-rose-600">1</span>
-        </div>
-        <div id="warnPill" class="flex items-center gap-1.5 bg-white border border-amber-200 rounded-full px-3 py-1 text-xs shadow-xs shrink-0">
+          <span class="font-black text-rose-600">0</span>
+        </a>
+        <a href="alerts.html" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-amber-200 rounded-full px-3 py-1 text-xs shadow-xs shrink-0 transition-colors">
           <div class="w-2 h-2 rounded-full bg-amber-500"></div>
           <span class="text-slate-500 font-medium">Warning:</span>
-          <span id="warnCount" class="font-black text-amber-600">1</span>
-        </div>
-        <a href="alerts-ack.html" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-emerald-200 rounded-full px-3 py-1 text-xs shadow-xs shrink-0 transition-colors">
+          <span class="font-black text-amber-600">0</span>
+        </a>
+        <div class="flex items-center gap-1.5 bg-white border border-emerald-200 rounded-full px-3 py-1 text-xs shadow-xs shrink-0">
           <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
           <span class="text-slate-500 font-medium">Acknowledged:</span>
-          <span id="ackCount" class="font-black text-emerald-600">156</span>
-        </a>
+          <span class="font-black text-emerald-600">156</span>
+        </div>
       </div>
     </section>
 
-    <!-- Main Navigation Tabs (Active vs Acknowledged) -->
+    <!-- Main Navigation Tabs -->
     <section class="space-y-3">
       <div class="flex p-1 bg-slate-200/80 rounded-xl">
-        <a href="alerts.html" class="flex-1 flex justify-center items-center gap-2 py-2 bg-[#004D40] text-white rounded-lg font-bold text-xs shadow-xs transition-colors">
+        <a href="alerts.html" class="flex-1 flex justify-center items-center gap-2 py-2 text-slate-600 hover:text-slate-900 rounded-lg font-bold text-xs transition-colors">
           <span>Active</span>
-          <span id="activeTabCount" class="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">2</span>
+          <span class="bg-slate-300 text-slate-700 text-[10px] font-black px-1.5 py-0.2 rounded-full">0</span>
         </a>
-        <a href="alerts-ack.html" class="flex-1 flex justify-center items-center gap-2 py-2 text-slate-600 hover:text-slate-900 rounded-lg font-bold text-xs transition-colors">
+        <a href="alerts-ack.html" class="flex-1 flex justify-center items-center gap-2 py-2 bg-[#004D40] text-white rounded-lg font-bold text-xs shadow-xs transition-colors">
           <span>Acknowledged</span>
-          <span class="bg-slate-300 text-slate-700 text-[10px] font-black px-1.5 py-0.2 rounded-full">156</span>
+          <span class="bg-[#00382E] text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">156</span>
         </a>
       </div>
 
@@ -110,69 +110,11 @@
       </div>
     </section>
 
-    <!-- Active Alerts List -->
-    <div id="alertsList" class="space-y-3.5">
-      <!-- Critical Alert Card -->
-      <div id="alertCard1" class="alert-card critical bg-white rounded-2xl shadow-xs border border-slate-200/80 border-l-[4.5px] border-l-rose-500 overflow-hidden p-4 space-y-3 transition-all duration-300">
-        <!-- Card Header -->
-        <div class="flex justify-between items-start">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-rose-50 text-rose-600 font-bold flex items-center justify-center border border-rose-200 text-xs">
-              JD
-            </div>
-            <div>
-              <h3 class="font-bold text-slate-900 flex items-center gap-1.5 text-sm">
-                Jane Doe 
-                <span class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">1</span>
-              </h3>
-              <p class="text-[11px] text-slate-500 font-medium">Station 1</p>
-            </div>
-          </div>
-          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white uppercase tracking-wider">
-            <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> CRITICAL
-          </span>
-        </div>
-
-        <!-- Alert Details -->
-        <div class="space-y-1">
-          <p class="text-xs font-bold text-slate-900 flex items-start gap-1.5">
-            <i class="fa-solid fa-circle-exclamation text-rose-500 mt-0.5 shrink-0"></i>
-            <span>Critical SpO₂ dropped to 89% (Safe Threshold: &ge; 90%)</span>
-          </p>
-          <p class="text-[11px] text-slate-400 pl-4 flex items-center gap-1">
-            <i class="fa-regular fa-clock text-[10px]"></i>
-            <span>Triggered at <strong class="text-slate-600 font-semibold">14:07</strong> (Just now)</span>
-          </p>
-        </div>
-
-        <!-- Vitals Snapshot -->
-        <div class="flex gap-2">
-          <div class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-1 text-xs">
-            <span class="text-slate-400 text-[11px]">BPM:</span>
-            <span class="font-bold text-slate-900">74</span>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-1 text-xs">
-            <span class="text-slate-400 text-[11px]">SpO₂:</span>
-            <span class="font-bold text-rose-600">89%</span>
-          </div>
-        </div>
-
-        <!-- Action Buttons Container -->
-        <div class="action-row flex gap-2 pt-1">
-          <a href="patient-log.html" class="flex-1 py-2 border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50 flex justify-center items-center gap-1.5 transition-colors">
-            <i class="fa-regular fa-file-lines text-slate-400"></i>
-            <span>View Patient Log</span>
-          </a>
-          <button onclick="ackAlert(this, 'alertCard1', 'critical')" class="flex-1 py-2 bg-[#007D79] hover:bg-[#006663] text-white font-bold text-xs rounded-lg flex justify-center items-center gap-1.5 transition-colors shadow-xs">
-            <i class="fa-solid fa-check text-xs"></i>
-            <span>Acknowledge</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Warning Alert Card -->
-      <div id="alertCard2" class="alert-card warning bg-white rounded-2xl shadow-xs border border-slate-200/80 border-l-[4.5px] border-l-amber-500 overflow-hidden p-4 space-y-3 transition-all duration-300">
-        <!-- Card Header -->
+    <!-- Acknowledged Alerts List -->
+    <div id="alertsContainer" class="space-y-3.5">
+      <!-- Item 1 (SpO2 Desaturation) -->
+      <div class="alert-item bg-white rounded-2xl shadow-xs border border-slate-200/80 border-l-[4.5px] border-l-amber-500 overflow-hidden p-4 space-y-3">
+        <!-- Top Row -->
         <div class="flex justify-between items-start">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-700 font-bold flex items-center justify-center border border-amber-200 text-xs">
@@ -191,7 +133,7 @@
           </span>
         </div>
 
-        <!-- Alert Details -->
+        <!-- Alert Message Details -->
         <div class="space-y-1">
           <p class="text-xs font-bold text-slate-900 flex items-start gap-1.5">
             <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5 shrink-0"></i>
@@ -203,7 +145,7 @@
           </p>
         </div>
 
-        <!-- Vitals Snapshot -->
+        <!-- Vitals Snapshot Chips -->
         <div class="flex gap-2">
           <div class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-1 text-xs">
             <span class="text-slate-400 text-[11px]">BPM:</span>
@@ -215,16 +157,78 @@
           </div>
         </div>
 
-        <!-- Action Buttons Container -->
-        <div class="action-row flex gap-2 pt-1">
-          <a href="patient-log.html" class="flex-1 py-2 border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50 flex justify-center items-center gap-1.5 transition-colors">
-            <i class="fa-regular fa-file-lines text-slate-400"></i>
+        <!-- Acknowledged Status Banner -->
+        <div class="bg-emerald-50 border border-emerald-200/80 rounded-full px-3 py-2 flex items-center gap-2 text-xs text-emerald-800">
+          <i class="fa-regular fa-circle-check text-emerald-600 text-sm shrink-0"></i>
+          <span>Acknowledged by <strong class="text-emerald-950 font-bold">Bruce Wayne</strong> at 18:19</span>
+        </div>
+
+        <!-- Action Button -->
+        <div class="flex justify-end pt-0.5">
+          <a href="patient-log.html" class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50 transition-colors shadow-2xs">
+            <i class="fa-regular fa-file-lines text-slate-400 text-xs"></i>
             <span>View Patient Log</span>
           </a>
-          <button onclick="ackAlert(this, 'alertCard2', 'warning')" class="flex-1 py-2 bg-[#007D79] hover:bg-[#006663] text-white font-bold text-xs rounded-lg flex justify-center items-center gap-1.5 transition-colors shadow-xs">
-            <i class="fa-solid fa-check text-xs"></i>
-            <span>Acknowledge</span>
-          </button>
+        </div>
+      </div>
+
+      <!-- Item 2 (Tachycardia / BPM Elevation) -->
+      <div class="alert-item bg-white rounded-2xl shadow-xs border border-slate-200/80 border-l-[4.5px] border-l-amber-500 overflow-hidden p-4 space-y-3">
+        <!-- Top Row -->
+        <div class="flex justify-between items-start">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-700 font-bold flex items-center justify-center border border-amber-200 text-xs">
+              JD
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 flex items-center gap-1.5 text-sm">
+                Jane Doe 
+                <span class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">1</span>
+              </h3>
+              <p class="text-[11px] text-slate-500 font-medium">Station 1</p>
+            </div>
+          </div>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white uppercase tracking-wider">
+            WARNING
+          </span>
+        </div>
+
+        <!-- Alert Message Details -->
+        <div class="space-y-1">
+          <p class="text-xs font-bold text-slate-900 flex items-start gap-1.5">
+            <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5 shrink-0"></i>
+            <span>BPM elevated to 111 bpm (Threshold: &gt; 100)</span>
+          </p>
+          <p class="text-[11px] text-slate-400 pl-4 flex items-center gap-1">
+            <i class="fa-regular fa-clock text-[10px]"></i>
+            <span>Triggered at <strong class="text-slate-600 font-semibold">18:16</strong> (Just now)</span>
+          </p>
+        </div>
+
+        <!-- Vitals Snapshot Chips -->
+        <div class="flex gap-2">
+          <div class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-1 text-xs">
+            <span class="text-slate-400 text-[11px]">BPM:</span>
+            <span class="font-bold text-amber-600">111</span>
+          </div>
+          <div class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-1 text-xs">
+            <span class="text-slate-400 text-[11px]">SpO₂:</span>
+            <span class="font-bold text-slate-900">96%</span>
+          </div>
+        </div>
+
+        <!-- Acknowledged Status Banner -->
+        <div class="bg-emerald-50 border border-emerald-200/80 rounded-full px-3 py-2 flex items-center gap-2 text-xs text-emerald-800">
+          <i class="fa-regular fa-circle-check text-emerald-600 text-sm shrink-0"></i>
+          <span>Acknowledged by <strong class="text-emerald-950 font-bold">Bruce Wayne</strong> at 18:19</span>
+        </div>
+
+        <!-- Action Button -->
+        <div class="flex justify-end pt-0.5">
+          <a href="patient-log.html" class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50 transition-colors shadow-2xs">
+            <i class="fa-regular fa-file-lines text-slate-400 text-xs"></i>
+            <span>View Patient Log</span>
+          </a>
         </div>
       </div>
     </div>
@@ -237,10 +241,9 @@
         <i class="fa-solid fa-chart-pie text-base mb-0.5"></i>
         <span class="text-[10px]">Dashboard</span>
       </a>
-      <a href="alerts.html" class="flex flex-col items-center py-1 text-[#007D79] font-bold relative">
+      <a href="alerts-ack.html" class="flex flex-col items-center py-1 text-[#007D79] font-bold relative">
         <i class="fa-solid fa-triangle-exclamation text-base mb-0.5"></i>
         <span class="text-[10px]">Alerts</span>
-        <span id="navDot" class="absolute top-1 right-6 w-2 h-2 bg-rose-500 rounded-full"></span>
       </a>
       <a href="patient-log.html" class="flex flex-col items-center py-1 text-slate-400 hover:text-slate-700 font-medium">
         <i class="fa-solid fa-heart-pulse text-base mb-0.5"></i>
@@ -254,65 +257,9 @@
   </nav>
 
   <script>
-    let activeCount = 2;
-    let acknowledgedCount = 156;
-
-    function ackAlert(btn, cardId, severity) {
-      const card = document.getElementById(cardId);
-      if (!card) return;
-
-      const actionRow = card.querySelector('.action-row');
-      if (actionRow) {
-        // Replace action row with the acknowledged status banner and right-aligned View Patient Log button
-        actionRow.outerHTML = `
-          <!-- Acknowledged Status Banner -->
-          <div class="bg-emerald-50 border border-emerald-200/80 rounded-full px-3 py-2 flex items-center gap-2 text-xs text-emerald-800 animate-fadeIn">
-            <i class="fa-regular fa-circle-check text-emerald-600 text-sm shrink-0"></i>
-            <span>Acknowledged by <strong class="text-emerald-950 font-bold">Bruce Wayne</strong> at 18:19</span>
-          </div>
-
-          <!-- Action Button -->
-          <div class="flex justify-end pt-0.5">
-            <a href="patient-log.html" class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50 transition-colors shadow-2xs">
-              <i class="fa-regular fa-file-lines text-slate-400 text-xs"></i>
-              <span>View Patient Log</span>
-            </a>
-          </div>
-        `;
-      }
-
-      // Update counters
-      activeCount = Math.max(0, activeCount - 1);
-      acknowledgedCount += 1;
-
-      document.getElementById('activeTabCount').innerText = activeCount;
-      if (activeCount === 0) {
-        document.getElementById('activeTabCount').classList.remove('bg-rose-500');
-        document.getElementById('activeTabCount').classList.add('bg-slate-400');
-        const navDot = document.getElementById('navDot');
-        if (navDot) navDot.style.display = 'none';
-      }
-
-      if (severity === 'critical') {
-        document.getElementById('critCount').innerText = '0';
-        document.getElementById('critPill').classList.remove('border-rose-200');
-        document.getElementById('critPill').classList.add('border-slate-200');
-      } else {
-        document.getElementById('warnCount').innerText = '0';
-        document.getElementById('warnPill').classList.remove('border-amber-200');
-        document.getElementById('warnPill').classList.add('border-slate-200');
-      }
-      document.getElementById('ackCount').innerText = acknowledgedCount;
-
-      // Optional redirect to alerts-ack.html after brief delay
-      setTimeout(() => {
-        window.location.href = 'alerts-ack.html';
-      }, 1000);
-    }
-
     function filterAlerts() {
       const q = document.getElementById('searchInput').value.toLowerCase().trim();
-      const items = document.querySelectorAll('.alert-card');
+      const items = document.querySelectorAll('.alert-item');
       items.forEach(item => {
         if (!q || item.innerText.toLowerCase().includes(q)) {
           item.style.display = 'block';

@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'screens/main_navigation_scaffold.dart';
 import 'screens/signin_screen.dart';
+import 'services/alert_notification_service.dart';
+import 'services/foreground_service_manager.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AlertNotificationService.initialize();
+  await ForegroundServiceManager.init();
+  await ForegroundServiceManager.startService();
   runApp(const VitalertApp());
 }
 
@@ -25,15 +30,26 @@ class _VitalertAppState extends State<VitalertApp> {
       title: 'VITALERT Patient Monitoring System',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: mediaQuery.textScaler.clamp(
+              minScaleFactor: 0.85,
+              maxScaleFactor: 1.20,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: ResponsiveMobileContainer(
         child: AnimatedBuilder(
           animation: _appState,
           builder: (context, _) {
             if (!_appState.isLoggedIn) {
               return SignInScreen(
-                onLoginSuccess: () {
-                  _appState.signIn('RN-04812', '123456');
-                },
+                state: _appState,
+                onLoginSuccess: () {},
               );
             }
             return MainNavigationScaffold(

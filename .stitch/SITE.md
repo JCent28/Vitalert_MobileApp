@@ -1,51 +1,30 @@
-# Vitalert Patient Monitoring System
+# VITALERT – Dialysis Center Clinical Monitoring System
 
-## 1. Vision
-Vitalert is a medical-grade real-time clinical monitoring application tailored for hospital nurses, intensivists, and healthcare providers. It provides continuous patient telemetry, live ECG/vitals monitoring, alert prioritization, and historical telemetry logging.
+## 1. Project Overview
+- **Stitch Project ID**: `projects/7366582551561146003`
+- **Application**: Real-time nurse station dialysis monitoring app for NephroAsia Dialysis Center
+- **Device Target**: Mobile (responsive tablet/desktop compatible)
 
-## 2. Project Information
-- **Stitch Project ID:** `11127492466121189818`
-- **Target Platform:** Mobile First (Responsive Web / Tablet / Desktop)
-- **Primary Color:** `#007B7F` (Precision Teal)
-- **Design Language:** Modern Clinical Minimalism (Inter + JetBrains Mono)
+## 2. Core Workflow & Use Cases
+1. **Authentication**: Nurse / Doctor sign-in with Staff ID, Password, and Role selection.
+2. **Floor Dashboard**: Live shift overview showing patient occupancy, normal/warning/critical distribution, search, and patient chair list.
+3. **Patient Vitals & Trend Log**: Individual patient dialysis session details with real-time Chart.js charts for Pulse Rate (BPM) and Oxygen Saturation (SpO2), plus chronological timestamped table.
+4. **Alerts Management**: Shift alert monitoring with Active vs. Acknowledged tabs, instant triage actions, and direct links to patient logs.
 
-## 3. Architecture & Structure
-```
-vitalert/
-├── .stitch/
-│   ├── metadata.json   # Stitch project metadata & screen IDs
-│   ├── DESIGN.md       # Visual design system specifications
-│   ├── SITE.md         # Site vision, sitemap, and roadmap
-│   ├── next-prompt.md  # Relay baton for next Stitch loop iteration
-│   └── designs/        # Raw downloaded Stitch HTML/PNG outputs
-│       ├── signin.html
-│       ├── dashboard.html
-│       ├── patient-vitals.html
-│       ├── alerts.html
-│       └── patient-log.html
-└── site/public/        # Production interactive site with seamless routing
-    ├── index.html      # Points to signin / dashboard
-    ├── signin.html
-    ├── dashboard.html
-    ├── patient-vitals.html
-    ├── alerts.html
-    └── patient-log.html
-```
+## 3. Sitemap
+- [x] `index.html` – Sign In Screen
+- [x] `dashboard.html` – Floor & Patient Overview Dashboard (Shift A)
+- [x] `patient-log.html` – Detailed Patient Vitals, Graphs, and Session History
+- [x] `alerts.html` – Active Critical & Warning Alerts Stream
+- [x] `alerts-ack.html` – Acknowledged Alerts Archive
 
-## 4. Sitemap (Current Iteration - 5 Core Screens)
-- [x] **Sign In (`signin.html`):** Secure clinical login with biometric auth, hospital staff badge scanner, and shift role selector.
-- [x] **Dashboard (`dashboard.html`):** Ward overview with triage status, multi-bed telemetry grid (ICU Ward A), quick vitals overview, and urgent priority badges.
-- [x] **Patient Vitals (`patient-vitals.html`):** Live telemetry detail for patient Pedro Garcia featuring real-time HR, SpO2, NIBP, Respiration, ECG lead waveform graph, and medication schedule.
-- [x] **Clinical Alerts (`alerts.html`):** Real-time triage alert feed categorized by Critical, Warning, and Info with quick acknowledge / escalation actions.
-- [x] **Patient Log (`patient-log.html`):** Historical telemetry logs, vital sign trend charts, event timestamps, nurse shift change notes, and PDF export summary.
+## 4. Roadmap & Next Iteration Backlog
+- [ ] `add-patient.html` / Dedicated Intake Flow – Comprehensive patient admission and chair assignment wizard
+- [ ] `patient-vitals-stream.html` – High-frequency multi-parameter waveform / telemetry view
+- [ ] `shift-handover.html` – Nurse shift report summary & handover notes export
+- [ ] `settings.html` – Center alert threshold configuration and nurse station preferences
 
-## 5. Roadmap (Future Loop Backlog)
-- [ ] **Medication Administration Record (eMAR):** Screen for scanning barcodes, administering doses, and logging medication infusions.
-- [ ] **Shift Handover Report:** Structured SBAR (Situation, Background, Assessment, Recommendation) report generator.
-- [ ] **Telemetry Device Pairing:** Bluetooth/NFC clinical sensor pairing and calibration interface.
-- [ ] **Multi-Bed Central Telemetry View:** Split-screen multi-patient live wave stream view for nursing station monitors.
-
-## 6. Creative Freedom Ideas
-- Bedside Nurse Call Notification Hub
-- Automated Early Warning Score (NEWS2 / MEWS) Calculator
-- Code Blue Emergency Response Checklist
+## 5. Creative Freedom / Future Ideas
+- Blood Pressure (MAP) & Ultrafiltration Rate (UFR) real-time dials
+- Dialysis machine sensor telemetry pairing QR code scanner
+- Emergency nurse call bell notification banner

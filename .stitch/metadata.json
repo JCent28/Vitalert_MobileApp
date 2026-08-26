@@ -1,67 +1,70 @@
 {
-  "name": "projects/11127492466121189818",
-  "projectId": "11127492466121189818",
-  "title": "Vitalert Patient Monitoring System",
+  "name": "projects/7366582551561146003",
+  "projectId": "7366582551561146003",
+  "title": "URL Design Extractor",
   "visibility": "PRIVATE",
+  "createTime": "2026-08-20T05:41:18.131078Z",
+  "updateTime": "2026-08-20T12:16:54.238891Z",
   "projectType": "TEXT_TO_UI_PRO",
   "origin": "STITCH",
   "deviceType": "MOBILE",
   "designTheme": {
     "colorMode": "LIGHT",
     "font": "INTER",
-    "roundness": "ROUND_FOUR",
-    "customColor": "#007b7f",
-    "headlineFont": "INTER",
-    "bodyFont": "INTER",
-    "labelFont": "JETBRAINS_MONO",
-    "namedColors": {
-      "primary": "#006063",
-      "primary_container": "#007b7f",
-      "secondary": "#1b6d24",
-      "secondary_container": "#a0f399",
-      "surface": "#f8f9ff",
-      "surface_container": "#e5eeff",
-      "surface_container_lowest": "#ffffff",
-      "on_surface": "#0b1c30",
-      "error": "#ba1a1a",
-      "error_container": "#ffdad6"
-    }
+    "roundness": "ROUND_EIGHT",
+    "customColor": "#007D79",
+    "saturation": 3
   },
   "screens": {
-    "signin": {
-      "id": "a32ea61e5503464e8390d12ccacb51c0",
-      "sourceScreen": "projects/11127492466121189818/screens/a32ea61e5503464e8390d12ccacb51c0",
-      "title": "VITALERT - Sign In",
+    "index": {
+      "id": "1f659ff52747446d92a6910f57051890",
+      "title": "Sign In Screen",
+      "sourceScreen": "projects/7366582551561146003/screens/1f659ff52747446d92a6910f57051890",
+      "x": 1024,
+      "y": 3738,
       "width": 780,
-      "height": 1768
+      "height": 1768,
+      "deviceType": "MOBILE"
     },
     "dashboard": {
-      "id": "64175728c70847d8b70df6d7f828a22c",
-      "sourceScreen": "projects/11127492466121189818/screens/64175728c70847d8b70df6d7f828a22c",
-      "title": "VITALERT - Dashboard",
+      "id": "c92f6e44c8ee40ce882afbcd3403a970",
+      "title": "Patient Overview Dashboard",
+      "sourceScreen": "projects/7366582551561146003/screens/c92f6e44c8ee40ce882afbcd3403a970",
+      "x": 1591,
+      "y": 3708,
       "width": 780,
-      "height": 2790
-    },
-    "patient-vitals": {
-      "id": "70fbde6e6b4a4d49ae044763a1d8ea92",
-      "sourceScreen": "projects/11127492466121189818/screens/70fbde6e6b4a4d49ae044763a1d8ea92",
-      "title": "Patient Vitals - Pedro Garcia",
-      "width": 780,
-      "height": 2068
-    },
-    "alerts": {
-      "id": "23d2f0d51c4741499c48fe68d3c3c59c",
-      "sourceScreen": "projects/11127492466121189818/screens/23d2f0d51c4741499c48fe68d3c3c59c",
-      "title": "VITALERT - Alerts",
-      "width": 780,
-      "height": 1768
+      "height": 1958,
+      "deviceType": "MOBILE"
     },
     "patient-log": {
-      "id": "7ee8f7621f62456aa85ead1d11aeca59",
-      "sourceScreen": "projects/11127492466121189818/screens/7ee8f7621f62456aa85ead1d11aeca59",
-      "title": "VITALERT - Patient Log",
+      "id": "0c508632748b4ecc8d50f1eb73c0ff96",
+      "title": "Patient Log & Trends",
+      "sourceScreen": "projects/7366582551561146003/screens/0c508632748b4ecc8d50f1eb73c0ff96",
+      "x": 3169,
+      "y": 3653,
       "width": 780,
-      "height": 2344
+      "height": 5518,
+      "deviceType": "MOBILE"
+    },
+    "alerts": {
+      "id": "7bcb0374d1db4b6bafb4a2dd50b852c8",
+      "title": "Alerts Monitoring - Active Badges",
+      "sourceScreen": "projects/7366582551561146003/screens/7bcb0374d1db4b6bafb4a2dd50b852c8",
+      "x": 2130,
+      "y": 3689,
+      "width": 780,
+      "height": 1938,
+      "deviceType": "MOBILE"
+    },
+    "alerts-ack": {
+      "id": "e94bee980c824557a7b49946664ca780",
+      "title": "Alerts Monitoring - Acknowledged View",
+      "sourceScreen": "projects/7366582551561146003/screens/e94bee980c824557a7b49946664ca780",
+      "x": 2601,
+      "y": 3687,
+      "width": 780,
+      "height": 1962,
+      "deviceType": "MOBILE"
     }
   },
   "metadata": {

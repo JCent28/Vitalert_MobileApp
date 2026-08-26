@@ -1,0 +1,279 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Vitalert - Acknowledged Alerts</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style data-purpose="custom-fonts">
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F8FAFC;
+    }
+  </style>
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#F0F9FF',
+              100: '#E0F2FE',
+              500: '#0EA5E9',
+              600: '#0284C7',
+              900: '#0C4A6E',
+            },
+            clinical: {
+              green: '#10B981',
+              greenLight: '#D1FAE5',
+              warning: '#F59E0B',
+              critical: '#EF4444',
+              dark: '#0F172A',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="text-slate-800 antialiased">
+<!-- BEGIN: AppContainer -->
+<div class="max-w-md mx-auto bg-white min-h-screen shadow-lg flex flex-col">
+<!-- BEGIN: Header -->
+<header class="flex items-center justify-between p-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+<div class="flex items-center gap-3">
+<!-- Logo Placeholder -->
+<div class="w-8 h-8 rounded bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xl">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M3 13h6.827a2 2 0 001.87-1.3l2.4-6.8a2 2 0 013.744.133l2.7 8.1a2 2 0 001.895 1.366H21" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<h1 class="font-bold text-lg leading-tight tracking-tight text-clinical-dark">VITALERT</h1>
+<p class="text-xs text-slate-500">NephroAsia Dialysis Center</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-clinical-greenLight text-clinical-green border border-clinical-green/20">
+<span class="w-1.5 h-1.5 rounded-full bg-clinical-green animate-pulse"></span>
+          LIVE
+        </span>
+<button class="text-slate-400 hover:text-slate-600 p-1">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</header>
+<!-- END: Header -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 flex flex-col bg-slate-50 overflow-y-auto">
+<!-- BEGIN: Page Header & Stats -->
+<div class="p-4 bg-white pb-3">
+<h2 class="text-2xl font-bold text-clinical-dark mb-1">Alerts</h2>
+<div class="flex items-center text-sm text-slate-500 mb-4 gap-2">
+<span class="px-2 py-0.5 rounded bg-brand-50 text-brand-600 font-medium text-xs">Shift A</span>
+<span>•</span>
+<span>Thursday, August 20, 2026</span>
+</div>
+<!-- Alert Summary Pills -->
+<div class="flex gap-2 mb-4 overflow-x-auto pb-1 hide-scrollbar">
+<div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-sm shadow-sm whitespace-nowrap">
+<span class="w-2.5 h-2.5 rounded-full bg-clinical-critical"></span>
+<span class="text-slate-600">Critical:</span>
+<span class="font-bold text-clinical-critical">0</span>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-sm shadow-sm whitespace-nowrap">
+<span class="w-2.5 h-2.5 rounded-full bg-clinical-warning"></span>
+<span class="text-slate-600">Warning:</span>
+<span class="font-bold text-clinical-warning">0</span>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-sm shadow-sm whitespace-nowrap">
+<span class="w-2.5 h-2.5 rounded-full bg-clinical-green"></span>
+<span class="text-slate-600">Acknowledged:</span>
+<span class="font-bold text-clinical-green">156</span>
+</div>
+</div>
+</div>
+<!-- END: Page Header & Stats -->
+<!-- BEGIN: Tabs & Search -->
+<div class="px-4 py-3 bg-white sticky top-0 z-0 border-b border-slate-100">
+<!-- Tabs -->
+<div class="flex rounded-lg bg-slate-100 p-1 mb-3">
+<button class="flex-1 py-1.5 px-3 text-sm font-medium text-slate-500 rounded-md flex justify-center items-center gap-2">
+            Active
+            <span class="bg-slate-200 text-slate-600 py-0.5 px-2 rounded-full text-xs">0</span>
+</button>
+<button class="flex-1 py-1.5 px-3 text-sm font-semibold text-white rounded-md shadow flex justify-center items-center gap-2" style="background-color: rgb(0, 105, 103);">
+            Acknowledged
+            <span class="bg-white/20 text-white py-0.5 px-2 rounded-full text-xs">156</span>
+</button>
+</div>
+<!-- Search Bar -->
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<input class="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 bg-slate-50" placeholder="Search patient or chair..." type="text">
+</div>
+</div>
+<!-- END: Tabs & Search -->
+<!-- BEGIN: Alert List -->
+<div class="p-4 space-y-4">
+<!-- Alert Card 1 -->
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative flex flex-col">
+<!-- Status Indicator Line -->
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-clinical-warning"></div>
+<div class="p-4 pl-5">
+<!-- Patient Info Header -->
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-orange-50 border border-orange-100 text-orange-600 font-semibold flex items-center justify-center">
+                  JD
+                </div>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="font-bold text-slate-800 text-base">Jane Doe</h3>
+<span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-xs rounded font-medium">1</span>
+</div>
+<p class="text-xs text-slate-500">Station 1</p>
+</div>
+</div>
+<span class="bg-clinical-warning text-white text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                Warning
+              </span>
+</div>
+<!-- Alert Details -->
+<div class="mb-4">
+<div class="flex items-start gap-2 mb-1">
+<svg class="w-5 h-5 text-clinical-warning shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<p class="font-semibold text-slate-800 text-sm">SpO₂ decreased to 92% (Threshold: &lt; 95%)</p>
+</div>
+<div class="flex items-center gap-1 text-xs text-slate-500 pl-7">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Triggered at <strong class="text-slate-700">18:17</strong> (Just now)</span>
+</div>
+</div>
+<!-- Vitals Pills -->
+<div class="flex gap-2 mb-4">
+<div class="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 text-sm flex gap-1">
+<span class="text-slate-500">BPM:</span>
+<span class="font-bold text-slate-700">93</span>
+</div>
+<div class="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 text-sm flex gap-1">
+<span class="text-slate-500">SpO₂:</span>
+<span class="font-bold text-clinical-warning">92%</span>
+</div>
+</div>
+<!-- Acknowledged Status -->
+<div class="bg-clinical-greenLight/50 border border-clinical-green/20 rounded-lg p-2 flex items-center gap-2 mb-4">
+<svg class="w-4 h-4 text-clinical-green shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<p class="text-xs text-clinical-green font-medium">
+                Acknowledged by <strong class="font-bold text-emerald-700">Bruce Wayne</strong> at 18:19
+              </p>
+</div>
+<!-- Actions -->
+<div class="flex justify-end">
+<button class="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+                View Patient Log
+              </button>
+</div>
+</div>
+</div>
+<!-- End Alert Card 1 -->
+<!-- Alert Card 2 -->
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative flex flex-col">
+<!-- Status Indicator Line -->
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-clinical-warning"></div>
+<div class="p-4 pl-5">
+<!-- Patient Info Header -->
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-orange-50 border border-orange-100 text-orange-600 font-semibold flex items-center justify-center">
+                  JD
+                </div>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="font-bold text-slate-800 text-base">Jane Doe</h3>
+<span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-xs rounded font-medium">1</span>
+</div>
+<p class="text-xs text-slate-500">Station 1</p>
+</div>
+</div>
+<span class="bg-clinical-warning text-white text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                Warning
+              </span>
+</div>
+<!-- Alert Details -->
+<div class="mb-4">
+<div class="flex items-start gap-2 mb-1">
+<svg class="w-5 h-5 text-clinical-warning shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<p class="font-semibold text-slate-800 text-sm">BPM elevated to 111 bpm (Threshold: &gt; 100)</p>
+</div>
+<div class="flex items-center gap-1 text-xs text-slate-500 pl-7">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Triggered at <strong class="text-slate-700">18:16</strong> (Just now)</span>
+</div>
+</div>
+<!-- Vitals Pills -->
+<div class="flex gap-2 mb-4">
+<div class="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 text-sm flex gap-1">
+<span class="text-slate-500">BPM:</span>
+<span class="font-bold text-slate-700">111</span>
+</div>
+<div class="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 text-sm flex gap-1">
+<span class="text-slate-500">SpO₂:</span>
+<span class="font-bold text-brand-600">96%</span>
+</div>
+</div>
+<!-- Acknowledged Status -->
+<div class="bg-clinical-greenLight/50 border border-clinical-green/20 rounded-lg p-2 flex items-center gap-2 mb-4">
+<svg class="w-4 h-4 text-clinical-green shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<p class="text-xs text-clinical-green font-medium">
+                Acknowledged by <strong class="font-bold text-emerald-700">Bruce Wayne</strong> at 18:19
+              </p>
+</div>
+<!-- Actions -->
+<div class="flex justify-end">
+<button class="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+                View Patient Log
+              </button>
+</div>
+</div>
+</div>
+<!-- End Alert Card 2 -->
+</div>
+<!-- END: Alert List -->
+</main>
+<!-- END: MainContent -->
+</div>
+<!-- END: AppContainer -->
+<style data-purpose="utilities">
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</body></html>

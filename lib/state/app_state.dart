@@ -1,261 +1,149 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/alert_item.dart';
+import '../models/device_model.dart';
 import '../models/patient.dart';
+import '../models/user_model.dart';
+import '../services/alert_notification_service.dart';
+import '../services/firebase_realtime_service.dart';
 
 class AppState extends ChangeNotifier {
+  final FirebaseRealtimeService _rtdbService = FirebaseRealtimeService();
+  StreamSubscription? _patientsSub;
+  StreamSubscription? _alertsSub;
+  StreamSubscription? _devicesSub;
+
   bool _isLoggedIn = true;
-  String _currentStaffId = 'RN-04812';
-  final String _nurseName = 'Rosa M.';
-  final String _shiftTime = '07:00 - 19:00';
+  UserModel? _currentUser = const UserModel(
+    staffId: 'HN-00312',
+    name: 'Clark Kent',
+    role: 'Head Nurse',
+  );
+
+  final String _shiftTime = 'Shift A · Friday, August 21, 2026';
   int _currentTabIndex = 0;
-  String _selectedPatientId = 'pg';
+  String _selectedPatientId = '-P-Ufwr3l6JLCYU9PZEf';
 
   bool get isLoggedIn => _isLoggedIn;
-  String get currentStaffId => _currentStaffId;
-  String get nurseName => _nurseName;
+  UserModel? get currentUser => _currentUser;
+  String get currentStaffId => _currentUser?.staffId ?? 'HN-00312';
+  String get nurseName => _currentUser?.name ?? 'Clark Kent';
+  String get userRole => _currentUser?.role ?? 'Head Nurse';
+  bool get isHeadNurse => _currentUser?.isHeadNurse ?? true;
+  bool get isStaffNurse => _currentUser?.isStaffNurse ?? false;
   String get shiftTime => _shiftTime;
   int get currentTabIndex => _currentTabIndex;
   String get selectedPatientId => _selectedPatientId;
 
-  late List<Patient> _patients;
-  late List<AlertItem> _alerts;
+  List<Patient> _patients = [];
+  List<AlertItem> _alerts = [];
+  List<DeviceModel> _devices = [];
 
   AppState() {
     _initData();
+    _bindFirebase();
+  }
+
+  void _bindFirebase() {
+    _patientsSub = _rtdbService.patientsStream.listen((livePatients) {
+      if (livePatients.isNotEmpty) {
+        _patients = livePatients;
+        if (!_patients.any((p) => p.id == _selectedPatientId)) {
+          _selectedPatientId = _patients.first.id;
+        }
+        notifyListeners();
+      }
+    });
+
+    _alertsSub = _rtdbService.alertsStream.listen((liveAlerts) {
+      _alerts = liveAlerts;
+      AlertNotificationService.processLiveAlerts(liveAlerts);
+      notifyListeners();
+    });
+
+    _devicesSub = _rtdbService.devicesStream.listen((liveDevices) {
+      _devices = liveDevices;
+      notifyListeners();
+    });
+
+    _rtdbService.startLiveSync(interval: const Duration(seconds: 2));
   }
 
   void _initData() {
-    _patients = [
-      const Patient(
-        id: 'pg',
-        name: 'Pedro Garcia',
-        initials: 'PG',
-        chair: 'Chair 01',
-        department: 'Infusion',
-        session: 'Session 3',
-        date: 'June 16, 2026',
-        startTime: '12:00 PM',
-        primaryNurse: 'Rosa M.',
-        duration: '2h 45m',
-        sessionStatus: 'ONGOING',
-        status: AlertSeverity.critical,
-        currentHr: 142,
-        currentSpO2: 88,
-        hrHistory: [2.0, 4.0, 3.0, 6.0, 8.0, 5.0],
-        spO2History: [8.0, 5.0, 6.0, 4.0, 5.0, 4.0],
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        recentReadings: [
-          PatientReading(time: '14:00', hrBpm: 128, spO2: 91, status: 'WARN', severity: AlertSeverity.warning),
-          PatientReading(time: '13:00', hrBpm: 115, spO2: 94, status: 'OK', severity: AlertSeverity.info),
-          PatientReading(time: '12:00', hrBpm: 110, spO2: 95, status: 'OK', severity: AlertSeverity.info),
-        ],
-        alertEvents: [
-          PatientLogEvent(
-            time: '14:32',
-            severity: AlertSeverity.critical,
-            hrBpm: 142,
-            spO2: 88,
-            description: 'SpO2 dropped below 90% alongside tachycardia.',
-            acknowledgementNote: 'Acknowledged by Rosa M. at 14:33. Oxygen flow increased.',
-          ),
-          PatientLogEvent(
-            time: '13:45',
-            severity: AlertSeverity.warning,
-            hrBpm: 110,
-            spO2: 94,
-            description: 'Elevated heart rate detected during position change.',
-          ),
-        ],
-      ),
-      const Patient(
-        id: 'sl',
-        name: 'Sarah Lin',
-        initials: 'SL',
-        chair: 'Chair 02',
-        department: 'Observation',
-        session: 'Session 1',
-        date: 'June 16, 2026',
-        startTime: '13:00 PM',
-        primaryNurse: 'Rosa M.',
-        duration: '1h 30m',
-        sessionStatus: 'ONGOING',
-        status: AlertSeverity.warning,
-        currentHr: 115,
-        currentSpO2: 97,
-        hrHistory: [2.0, 3.0, 4.0, 6.0, 4.0, 5.0],
-        spO2History: [8.0, 8.0, 6.0, 8.0, 5.0, 8.0],
-        avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
-        recentReadings: [
-          PatientReading(time: '14:00', hrBpm: 115, spO2: 97, status: 'WARN', severity: AlertSeverity.warning),
-          PatientReading(time: '13:30', hrBpm: 102, spO2: 98, status: 'OK', severity: AlertSeverity.info),
-        ],
-        alertEvents: [
-          PatientLogEvent(
-            time: '14:10',
-            severity: AlertSeverity.warning,
-            hrBpm: 115,
-            spO2: 97,
-            description: 'Tachycardia alert triggered (>110 BPM).',
-            acknowledgementNote: 'Assessed by Rosa M. at 14:12. Patient drinking water.',
-          ),
-        ],
-      ),
-      const Patient(
-        id: 'jd',
-        name: 'John Doe',
-        initials: 'JD',
-        chair: 'Chair 03',
-        department: 'Recovery',
-        session: 'Session 4',
-        date: 'June 16, 2026',
-        startTime: '10:30 AM',
-        primaryNurse: 'Rosa M.',
-        duration: '4h 00m',
-        sessionStatus: 'ONGOING',
-        status: AlertSeverity.info,
-        currentHr: 72,
-        currentSpO2: 99,
-        hrHistory: [2.0, 3.0, 2.0, 4.0, 2.0, 3.0],
-        spO2History: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0],
-        avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-        recentReadings: [
-          PatientReading(time: '14:00', hrBpm: 72, spO2: 99, status: 'OK', severity: AlertSeverity.info),
-          PatientReading(time: '13:00', hrBpm: 74, spO2: 99, status: 'OK', severity: AlertSeverity.info),
-          PatientReading(time: '12:00', hrBpm: 70, spO2: 98, status: 'OK', severity: AlertSeverity.info),
-        ],
-        alertEvents: [],
-      ),
-      const Patient(
-        id: 'al',
-        name: 'Ana Lim',
-        initials: 'AL',
-        chair: 'Chair 04',
-        department: 'Dialysis Bay A',
-        session: 'Session 2',
-        date: 'June 16, 2026',
-        startTime: '11:15 AM',
-        primaryNurse: 'Rosa M.',
-        duration: '3h 15m',
-        sessionStatus: 'ONGOING',
-        status: AlertSeverity.info,
-        currentHr: 78,
-        currentSpO2: 98,
-        hrHistory: [3.0, 3.0, 4.0, 3.0, 4.0, 3.0],
-        spO2History: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0],
-        avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-        recentReadings: [
-          PatientReading(time: '14:00', hrBpm: 78, spO2: 98, status: 'OK', severity: AlertSeverity.info),
-        ],
-        alertEvents: [],
-      ),
-      const Patient(
-        id: 'jdc',
-        name: 'Juan dela Cruz',
-        initials: 'JC',
-        chair: 'Chair 05',
-        department: 'Dialysis Bay B',
-        session: 'Session 1',
-        date: 'June 16, 2026',
-        startTime: '12:30 PM',
-        primaryNurse: 'Rosa M.',
-        duration: '2h 00m',
-        sessionStatus: 'ONGOING',
-        status: AlertSeverity.info,
-        currentHr: 82,
-        currentSpO2: 97,
-        hrHistory: [3.0, 4.0, 3.0, 5.0, 4.0, 3.0],
-        spO2History: [8.0, 7.0, 8.0, 8.0, 7.0, 8.0],
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        recentReadings: [
-          PatientReading(time: '14:00', hrBpm: 82, spO2: 97, status: 'OK', severity: AlertSeverity.info),
-        ],
-        alertEvents: [],
-      ),
-      const Patient(
-        id: 'ms',
-        name: 'Maria Santos',
-        initials: 'MS',
-        chair: 'Chair 06',
-        department: 'Dialysis Bay A',
-        session: 'Session 3',
-        date: 'June 16, 2026',
-        startTime: '09:00 AM',
-        primaryNurse: 'Rosa M.',
-        duration: '5h 30m',
-        sessionStatus: 'ONGOING',
-        status: AlertSeverity.warning,
-        currentHr: 95,
-        currentSpO2: 96,
-        hrHistory: [4.0, 4.0, 5.0, 6.0, 5.0, 5.0],
-        spO2History: [8.0, 7.0, 7.0, 8.0, 7.0, 8.0],
-        avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-        recentReadings: [
-          PatientReading(time: '14:00', hrBpm: 95, spO2: 96, status: 'WARN', severity: AlertSeverity.warning),
-        ],
-        alertEvents: [],
-      ),
-    ];
+    _patients = [];
+    _alerts = [];
+    _devices = [];
+  }
 
-    _alerts = [
-      AlertItem(
-        id: 'alt-1',
-        patientId: 'pg',
-        patientName: 'Pedro Garcia',
-        chairLocation: 'Chair 3',
-        wardArea: 'Dialysis Bay B',
-        severity: AlertSeverity.critical,
-        title: 'Critical — Heart Rate',
-        message: 'SpO2 dropped to 88%',
-        timeString: '14:32',
-        hrBpm: 142,
-        spO2: 88,
-        isAcknowledged: false,
-      ),
-      AlertItem(
-        id: 'alt-2',
-        patientId: 'ms',
-        patientName: 'Maria Silva',
-        chairLocation: 'Chair 1',
-        wardArea: 'Dialysis Bay A',
-        severity: AlertSeverity.warning,
-        title: 'Elevated Blood Pressure',
-        message: 'BP elevated: 160/95 mmHg',
-        timeString: '12:15',
-        isAcknowledged: true,
-        acknowledgedBy: 'Rosa M.',
-        acknowledgedAt: '12:18',
-      ),
-      AlertItem(
-        id: 'alt-3',
-        patientId: 'jc',
-        patientName: 'John Chen',
-        chairLocation: 'Chair 5',
-        wardArea: 'Dialysis Bay B',
-        severity: AlertSeverity.warning,
-        title: 'Cardiac Rhythm Anomaly',
-        message: 'HR irregularity detected',
-        timeString: '09:45',
-        isAcknowledged: true,
-        acknowledgedBy: 'Dr. Smith',
-        acknowledgedAt: '09:50',
-      ),
-    ];
+  Patient _createDefaultPatient() {
+    return const Patient(
+      id: '-P-Ufwr3l6JLCYU9PZEf',
+      name: 'Jane Doe',
+      mrn: '#990142',
+      initials: 'JD',
+      chair: '2',
+      department: 'NephroAsia Dialysis Bay',
+      session: 'Session 2',
+      deviceId: 'device1',
+      date: 'Friday, August 21, 2026',
+      startTime: '--',
+      primaryNurse: 'Clark Kent',
+      duration: '--',
+      sessionStatus: 'Waiting',
+      status: AlertSeverity.info,
+      currentHr: 0,
+      currentSpO2: 0,
+      highestHr: 0,
+      lowestHr: 0,
+      avgHr: 0,
+      highestSpO2: 0,
+      lowestSpO2: 0,
+      avgSpO2: 0,
+      hrHistory: [],
+      spO2History: [],
+      recentReadings: [],
+      alertEvents: [],
+    );
   }
 
   List<Patient> get patients => _patients;
+  List<DeviceModel> get devices => _devices;
+
   Patient get selectedPatient =>
-      _patients.firstWhere((p) => p.id == _selectedPatientId, orElse: () => _patients.first);
+      _patients.firstWhere((p) => p.id == _selectedPatientId, orElse: () => _patients.isNotEmpty ? _patients.first : _createDefaultPatient());
 
   List<AlertItem> get activeAlerts => _alerts.where((a) => !a.isAcknowledged).toList();
   List<AlertItem> get acknowledgedAlerts => _alerts.where((a) => a.isAcknowledged).toList();
 
-  int get totalActivePatients => 3;
-  int get normalPatientsCount => 1;
-  int get warningPatientsCount => 1;
-  int get criticalPatientsCount => 1;
+  int get totalActivePatients => _patients.where((p) => p.sessionStatus == 'Ongoing').length;
+  int get totalChairs => _patients.isNotEmpty ? _patients.map((p) => p.chair).toSet().length : 0;
+  int get normalPatientsCount => _patients.where((p) => p.sessionStatus == 'Ongoing' && p.deviceId != 'N/A' && p.status == AlertSeverity.info).length;
+  int get warningPatientsCount => _patients.where((p) => p.sessionStatus == 'Ongoing' && p.deviceId != 'N/A' && p.status == AlertSeverity.warning).length;
+  int get criticalPatientsCount => _patients.where((p) => p.sessionStatus == 'Ongoing' && p.deviceId != 'N/A' && p.status == AlertSeverity.critical).length;
+
+  Future<bool> signInWithFirebase(String staffId, String password) async {
+    final user = await _rtdbService.authenticateStaff(
+      staffId: staffId.trim(),
+      password: password.trim(),
+    );
+
+    if (user != null) {
+      _currentUser = user;
+      _isLoggedIn = true;
+      _currentTabIndex = 0;
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
 
   void signIn(String staffId, String pin) {
-    _currentStaffId = staffId.isNotEmpty ? staffId : 'RN-04812';
+    _currentUser = UserModel(
+      staffId: staffId.isNotEmpty ? staffId : 'HN-00312',
+      name: 'Clark Kent',
+      role: 'Head Nurse',
+    );
     _isLoggedIn = true;
     _currentTabIndex = 0;
     notifyListeners();
@@ -263,6 +151,7 @@ class AppState extends ChangeNotifier {
 
   void signOut() {
     _isLoggedIn = false;
+    _currentUser = null;
     notifyListeners();
   }
 
@@ -276,18 +165,146 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void acknowledgeAlert(String alertId) {
+  void acknowledgeAlert(String alertId, {String? note}) {
+    final timeStr = DateFormat('HH:mm').format(DateTime.now());
     final index = _alerts.indexWhere((a) => a.id == alertId);
+    String? patientId;
     if (index != -1) {
-      _alerts[index].acknowledge(nurseName: _nurseName, time: '14:33');
+      patientId = _alerts[index].patientId;
+      _alerts[index].acknowledge(nurseName: nurseName, time: timeStr);
+      if (note != null) _alerts[index].note = note;
       notifyListeners();
     }
+    AlertNotificationService.dismissAlert(alertId, patientId: patientId);
+    _rtdbService.acknowledgeAlert(
+      alertId: alertId,
+      nurseName: nurseName,
+      time: timeStr,
+      note: note,
+    );
   }
 
-  void acknowledgePatientCritical(String patientId) {
-    for (final alert in _alerts.where((a) => a.patientId == patientId && !a.isAcknowledged)) {
-      alert.acknowledge(nurseName: _nurseName, time: '14:33');
+  Future<bool> startSession({
+    required String patientId,
+    required String sessionNum,
+    required String deviceId,
+  }) async {
+    final index = _patients.indexWhere((p) => p.id == patientId);
+    if (index != -1) {
+      final p = _patients[index];
+      _patients[index] = p.copyWith(
+        sessionStatus: 'Waiting',
+        session: 'Session $sessionNum',
+        deviceId: deviceId,
+        status: AlertSeverity.info,
+      );
+      notifyListeners();
     }
+    return await _rtdbService.startSession(
+      patientId: patientId,
+      sessionNum: sessionNum,
+      deviceId: deviceId,
+    );
+  }
+
+  Future<bool> endSession({
+    required String patientId,
+    required String deviceId,
+  }) async {
+    final index = _patients.indexWhere((p) => p.id == patientId);
+    if (index != -1) {
+      final p = _patients[index];
+      _patients[index] = p.copyWith(
+        sessionStatus: 'Completed',
+      );
+      notifyListeners();
+    }
+    return await _rtdbService.endSession(
+      patientId: patientId,
+      deviceId: deviceId,
+    );
+  }
+
+  Future<bool> updatePatientSessionStatus(String patientId, String newStatus) async {
+    final index = _patients.indexWhere((p) => p.id == patientId);
+    if (index != -1) {
+      final p = _patients[index];
+      _patients[index] = p.copyWith(
+        sessionStatus: newStatus,
+        session: 'Session ${p.chair}',
+      );
+      notifyListeners();
+    }
+    return await _rtdbService.updatePatient(patientId, status: newStatus);
+  }
+
+  Future<bool> deactivatePatient(String patientId, {String? deviceId}) async {
+    _patients.removeWhere((p) => p.id == patientId);
     notifyListeners();
+    return await _rtdbService.deletePatient(patientId, deviceId: deviceId);
+  }
+
+  Future<bool> updatePatient(
+    String patientId, {
+    String? name,
+    String? chair,
+    String? session,
+    String? deviceId,
+  }) async {
+    final index = _patients.indexWhere((p) => p.id == patientId);
+    if (index != -1) {
+      final p = _patients[index];
+      _patients[index] = p.copyWith(
+        name: name,
+        chair: chair,
+        session: session != null ? 'Session $session' : null,
+        deviceId: deviceId,
+      );
+      notifyListeners();
+    }
+    return await _rtdbService.updatePatient(
+      patientId,
+      name: name,
+      chair: chair,
+      session: session,
+      deviceId: deviceId,
+    );
+  }
+
+  Future<bool> addPatient({
+    required String name,
+    required String chair,
+    required String session,
+    required String deviceId,
+  }) async {
+    return await _rtdbService.addPatient(
+      name: name,
+      chair: chair,
+      session: session,
+      deviceId: deviceId,
+    );
+  }
+
+  Future<bool> recordClinicalNote({
+    required String patientId,
+    required String session,
+    required String note,
+  }) async {
+    return await _rtdbService.recordClinicalNote(
+      patientId: patientId,
+      session: session,
+      note: note,
+      nurseName: nurseName,
+      staffId: currentStaffId,
+    );
+  }
+
+  @override
+  void dispose() {
+    _patientsSub?.cancel();
+    _alertsSub?.cancel();
+    _devicesSub?.cancel();
+    _rtdbService.dispose();
+    super.dispose();
   }
 }

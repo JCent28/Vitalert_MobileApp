@@ -3,7 +3,6 @@ import '../models/alert_item.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_top_bar.dart';
-import '../widgets/vital_card.dart';
 
 class PatientVitalsScreen extends StatefulWidget {
   final AppState state;
@@ -40,11 +39,9 @@ class _PatientVitalsScreenState extends State<PatientVitalsScreen> {
       appBar: AppTopBar(
         showBack: true,
         onBack: widget.onBack,
-        showLivePulse: true,
-        isLiveCritical: isCritical,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+        padding: context.responsivePagePadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -52,76 +49,64 @@ class _PatientVitalsScreenState extends State<PatientVitalsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.borderLight),
               ),
               child: Row(
                 children: [
-                  // Patient Avatar
                   Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: AppColors.textMain,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.borderLight),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: patient.avatarUrl != null
-                        ? Image.network(
-                            patient.avatarUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Center(
-                              child: Text(
-                                patient.initials,
-                                style: AppTypography.headlineMd(
-                                  color: AppColors.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          )
-                        : Center(
-                            child: Text(
-                              patient.initials,
-                              style: AppTypography.headlineMd(
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
+                    child: Center(
+                      child: Text(
+                        patient.initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           patient.name,
-                          style: AppTypography.headlineLg(color: AppColors.onSurface),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.headlineMd(color: AppColors.textMain).copyWith(fontSize: 16),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${patient.chair} • ${patient.session}',
-                          style: AppTypography.bodyMd(color: AppColors.onSurfaceVariant),
+                          'Chair ${patient.chair} • ${patient.session}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyMd(color: AppColors.textMuted, fontSize: 11.5),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: isCritical ? AppColors.errorBg : AppColors.warningAmberBg,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(
-                        color: isCritical ? AppColors.errorBorder : AppColors.warningAmberBorder,
-                      ),
+                      color: isCritical ? AppColors.criticalRed : AppColors.warningAmber,
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       isCritical ? 'CRITICAL' : 'WARNING',
-                      style: AppTypography.labelCaps(
-                        color: isCritical ? AppColors.error : AppColors.tertiary,
-                        fontSize: 11,
-                        weight: FontWeight.w700,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
@@ -130,21 +115,14 @@ class _PatientVitalsScreenState extends State<PatientVitalsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Alert Section Banner (if critical or warning)
+            // Alert Section Banner
             if (!_isAcknowledged) ...[
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.errorContainer,
+                  color: AppColors.errorBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.error, width: 1),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33BA1A1A),
-                      spreadRadius: 2,
-                      blurRadius: 0,
-                    ),
-                  ],
+                  border: Border.all(color: AppColors.criticalRed, width: 1.5),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,90 +132,50 @@ class _PatientVitalsScreenState extends State<PatientVitalsScreen> {
                       children: [
                         const Icon(
                           Icons.warning_amber_rounded,
-                          color: AppColors.onErrorContainer,
-                          size: 24,
+                          color: AppColors.criticalRed,
+                          size: 22,
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Critical — Heart Rate',
-                                style: AppTypography.headlineMd(
-                                  color: AppColors.onErrorContainer,
-                                ),
+                                'Critical SpO₂ & Tachycardia Alert',
+                                style: AppTypography.headlineMd(color: AppColors.criticalRed).copyWith(fontSize: 14),
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Threshold exceeded for 30s',
-                                style: AppTypography.bodyMd(
-                                  color: AppColors.onErrorContainer,
-                                ),
+                                'Pulse elevated to 125 bpm • SpO₂ at 89%',
+                                style: AppTypography.bodyMd(color: AppColors.textMain, fontSize: 12),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
-                      height: 44,
-                      child: ElevatedButton(
+                      height: 40,
+                      child: ElevatedButton.icon(
                         onPressed: () {
-                          setState(() {
-                            _isAcknowledged = true;
-                          });
-                          widget.state.acknowledgePatientCritical(patient.id);
+                          setState(() => _isAcknowledged = true);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Critical alert acknowledged by Rosa M.'),
-                              backgroundColor: AppColors.primaryContainer,
-                              duration: Duration(seconds: 2),
+                              content: Text('Critical alert acknowledged'),
+                              backgroundColor: AppColors.primary,
+                              duration: Duration(seconds: 1),
                             ),
                           );
                         },
+                        icon: const Icon(Icons.check, size: 16),
+                        label: const Text('Acknowledge Alert', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.error,
-                          foregroundColor: AppColors.onError,
+                          backgroundColor: AppColors.criticalRed,
+                          foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Text(
-                          'ACKNOWLEDGE',
-                          style: AppTypography.labelCaps(
-                            color: AppColors.onError,
-                            fontSize: 12,
-                            weight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.normalGreenBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.normalGreenBorder),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.done_all, color: AppColors.secondary, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Alert acknowledged by Rosa M. at 14:33',
-                        style: AppTypography.bodyMd(
-                          color: AppColors.secondary,
-                          weight: FontWeight.w500,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                       ),
                     ),
@@ -247,133 +185,19 @@ class _PatientVitalsScreenState extends State<PatientVitalsScreen> {
               const SizedBox(height: 16),
             ],
 
-            // Vitals Metric Cards
-            VitalTelemetryCard(
-              label: 'HEART RATE',
-              icon: Icons.favorite,
-              value: '${patient.currentHr}',
-              unit: 'BPM',
-              severity: isCritical ? AlertSeverity.critical : AlertSeverity.warning,
-              isHeartRate: true,
-            ),
-            const SizedBox(height: 16),
-
-            VitalTelemetryCard(
-              label: 'BLOOD OXYGEN',
-              icon: Icons.water_drop_outlined,
-              value: '${patient.currentSpO2}',
-              unit: '%',
-              severity: AlertSeverity.warning,
-              isHeartRate: false,
-            ),
-            const SizedBox(height: 16),
-
-            // Recent Readings Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.borderLight),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Recent Readings',
-                    style: AppTypography.headlineMd(color: AppColors.onSurface),
-                  ),
-                  const SizedBox(height: 16),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: patient.recentReadings.length,
-                    separatorBuilder: (context, index) => const Divider(
-                      height: 1,
-                      color: AppColors.borderLight,
-                    ),
-                    itemBuilder: (context, index) {
-                      final r = patient.recentReadings[index];
-                      final isWarn = r.severity == AlertSeverity.warning;
-
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12.0),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 60,
-                              child: Text(
-                                r.time,
-                                style: AppTypography.metricMono(
-                                  color: AppColors.onSurfaceVariant,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Text(
-                                    '${r.hrBpm} BPM',
-                                    style: AppTypography.metricMono(
-                                      color: AppColors.onSurface,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Text(
-                                    '${r.spO2}%',
-                                    style: AppTypography.metricMono(
-                                      color: AppColors.onSurface,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isWarn
-                                    ? AppColors.tertiaryContainerBg
-                                    : AppColors.normalGreenBg,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                r.status,
-                                style: AppTypography.labelCaps(
-                                  color: isWarn
-                                      ? AppColors.tertiaryContainer
-                                      : AppColors.primary,
-                                  fontSize: 11,
-                                  weight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: widget.onViewFullLog,
-                      child: Text(
-                        'VIEW FULL LOG',
-                        style: AppTypography.labelCaps(
-                          color: AppColors.primary,
-                          fontSize: 12,
-                          weight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+            // View Full Log CTA
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                onPressed: widget.onViewFullLog,
+                icon: const Icon(Icons.assignment_outlined, size: 16),
+                label: const Text('View Full Vitals Log & Trends', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
             ),
             const SizedBox(height: 24),

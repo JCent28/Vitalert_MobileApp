@@ -95,20 +95,27 @@ class VitalTelemetryCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Icon(icon, size: 20, color: iconColor),
-                        const SizedBox(width: 8),
-                        Text(
-                          label,
-                          style: AppTypography.labelCaps(
-                            color: iconColor,
-                            fontSize: 12,
-                            weight: FontWeight.w700,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(icon, size: 20, color: iconColor),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.labelCaps(
+                                color: iconColor,
+                                fontSize: 12,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
@@ -128,25 +135,29 @@ class VitalTelemetryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 // Vitals readout
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      value,
-                      style: AppTypography.displayVitals(color: valueColor),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      unit,
-                      style: AppTypography.bodyLg(
-                        color: severity == AlertSeverity.critical
-                            ? AppColors.error
-                            : AppColors.onSurfaceVariant,
-                        weight: FontWeight.w500,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        value,
+                        style: AppTypography.displayVitals(color: valueColor),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Text(
+                        unit,
+                        style: AppTypography.bodyLg(
+                          color: severity == AlertSeverity.critical
+                              ? AppColors.error
+                              : AppColors.onSurfaceVariant,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
               ],

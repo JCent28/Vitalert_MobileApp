@@ -1,114 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VITALERT - Patient Monitoring System</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>VITALERT - Nurse Station Sign In | NephroAsia Dialysis Center</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .mono { font-family: 'JetBrains Mono', monospace; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
   </style>
 </head>
-<body class="bg-[#f8f9ff] text-[#0b1c30] min-h-screen flex flex-col">
-  <!-- Header -->
-  <header class="bg-[#004f52] text-white py-6 px-6 shadow-md">
-    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-[#007b7f] border border-[#96f1f5]/30 flex items-center justify-center">
-          <span class="material-symbols-outlined text-[#96f1f5]">monitor_heart</span>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-4 antialiased text-slate-800">
+  <main class="w-full max-w-[400px]">
+    <!-- Sign In Card -->
+    <div class="bg-white rounded-2xl shadow-md border border-slate-200/80 p-6 sm:p-8 w-full transition-all">
+      <!-- Header Section -->
+      <div class="text-center mb-8">
+        <!-- Logo -->
+        <div class="flex items-center justify-center gap-2.5 mb-2">
+          <div class="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-700 border border-teal-200">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path d="M22 12H18L15 21L9 3L6 12H2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </div>
+          <h1 class="text-slate-900 text-2xl font-black tracking-wider">VITALERT</h1>
         </div>
+        <p class="text-slate-500 text-xs font-medium">NephroAsia Dialysis Center · Nurse Station</p>
+      </div>
+
+      <!-- Title Section -->
+      <div class="mb-6 border-b border-slate-100 pb-4">
+        <h2 class="text-xl font-bold text-slate-900">Sign In</h2>
+        <p class="text-xs text-slate-500 mt-1">Authorized Clinical Personnel Only</p>
+      </div>
+
+      <!-- Form Section -->
+      <form id="signInForm" action="dashboard.html" method="GET" class="space-y-4">
+        <!-- Staff ID Input -->
         <div>
-          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            VITALERT
-            <span class="text-xs bg-[#7ad5d9]/20 text-[#96f1f5] px-2 py-0.5 rounded-full mono font-normal">STITCH LOOP BUILD</span>
-          </h1>
-          <p class="text-xs text-teal-200">Continuous Patient Telemetry & Critical Care Monitoring</p>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5" for="staff-id">Staff ID</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <i class="fa-regular fa-id-badge text-sm"></i>
+            </div>
+            <input 
+              class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-colors text-slate-900 text-sm placeholder-slate-400" 
+              id="staff-id" 
+              placeholder="e.g. HN-00312" 
+              value="HN-00312"
+              required 
+              type="text"
+            >
+          </div>
         </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <a href="dashboard.html" class="bg-[#007b7f] hover:bg-[#006063] text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-sm flex items-center gap-2">
-          <span>Launch Live App</span>
-          <span class="material-symbols-outlined text-sm">arrow_forward</span>
-        </a>
-      </div>
+
+        <!-- Password Input -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5" for="password">Password</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <i class="fa-solid fa-lock text-sm"></i>
+            </div>
+            <input 
+              class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-colors text-slate-900 text-sm placeholder-slate-400" 
+              id="password" 
+              placeholder="••••••••" 
+              value="dialysis2026"
+              required 
+              type="password"
+            >
+          </div>
+        </div>
+
+        <!-- Role Dropdown -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5" for="role">Clinical Role</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <i class="fa-solid fa-user-doctor text-sm"></i>
+            </div>
+            <select 
+              class="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-colors text-slate-900 text-sm appearance-none bg-white" 
+              id="role"
+            >
+              <option value="head-nurse">Head Nurse (Shift Lead)</option>
+              <option value="staff-nurse">Staff Nurse</option>
+              <option value="nephrologist">Nephrologist / Doctor</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
+              <i class="fa-solid fa-chevron-down text-xs"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button 
+          class="w-full mt-2 bg-[#007D79] hover:bg-[#006663] active:bg-[#004d40] text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-150 shadow-sm flex items-center justify-center gap-2 text-sm" 
+          type="submit"
+        >
+          <span>Access Nurse Station</span>
+          <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+      </form>
     </div>
-  </header>
 
-  <!-- Main Showcase -->
-  <main class="max-w-6xl mx-auto px-6 py-10 flex-1 w-full flex flex-col gap-8">
-    <div class="bg-white border border-[#e2e8f0] rounded-2xl p-6 sm:p-8 shadow-sm">
-      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <div>
-          <h2 class="text-xl font-bold text-[#0b1c30]">5-Screen Patient Monitoring Suite</h2>
-          <p class="text-sm text-[#64748b]">Built iteratively using the Google Stitch Loop Skill with precision telemetry design tokens.</p>
-        </div>
-        <div class="flex items-center gap-2 text-xs mono bg-[#f8f9ff] px-3 py-1.5 rounded-lg border border-[#e2e8f0]">
-          <span class="w-2 h-2 rounded-full bg-[#1b6d24] animate-pulse"></span>
-          <span>Project ID: 11127492466121189818</span>
-        </div>
-      </div>
-
-      <!-- Screen Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <!-- Card 1 -->
-        <a href="signin.html" class="group bg-[#f8f9ff] border border-[#e2e8f0] hover:border-[#007b7f] rounded-xl p-4 transition-all hover:shadow-md flex flex-col">
-          <div class="w-8 h-8 rounded-lg bg-[#007b7f]/10 text-[#007b7f] flex items-center justify-center mb-3 group-hover:bg-[#007b7f] group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-lg">lock</span>
-          </div>
-          <h3 class="font-semibold text-sm text-[#0b1c30] mb-1">1. Sign In</h3>
-          <p class="text-xs text-[#64748b] flex-1 mb-3">Clinical authentication, biometric scan & shift role setup.</p>
-          <span class="text-xs font-semibold text-[#007b7f] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">Open Screen &rarr;</span>
-        </a>
-
-        <!-- Card 2 -->
-        <a href="dashboard.html" class="group bg-[#f8f9ff] border border-[#e2e8f0] hover:border-[#007b7f] rounded-xl p-4 transition-all hover:shadow-md flex flex-col">
-          <div class="w-8 h-8 rounded-lg bg-[#007b7f]/10 text-[#007b7f] flex items-center justify-center mb-3 group-hover:bg-[#007b7f] group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-lg">dashboard</span>
-          </div>
-          <h3 class="font-semibold text-sm text-[#0b1c30] mb-1">2. Ward Dashboard</h3>
-          <p class="text-xs text-[#64748b] flex-1 mb-3">Multi-bed floor overview, live ECG sparklines & patient triaging.</p>
-          <span class="text-xs font-semibold text-[#007b7f] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">Open Screen &rarr;</span>
-        </a>
-
-        <!-- Card 3 -->
-        <a href="patient-vitals.html" class="group bg-[#f8f9ff] border border-[#e2e8f0] hover:border-[#007b7f] rounded-xl p-4 transition-all hover:shadow-md flex flex-col">
-          <div class="w-8 h-8 rounded-lg bg-[#007b7f]/10 text-[#007b7f] flex items-center justify-center mb-3 group-hover:bg-[#007b7f] group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-lg">ecg_heart</span>
-          </div>
-          <h3 class="font-semibold text-sm text-[#0b1c30] mb-1">3. Patient Vitals</h3>
-          <p class="text-xs text-[#64748b] flex-1 mb-3">Deep-dive telemetry for Pedro Garcia (HR, SpO2, NIBP, Waveforms).</p>
-          <span class="text-xs font-semibold text-[#007b7f] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">Open Screen &rarr;</span>
-        </a>
-
-        <!-- Card 4 -->
-        <a href="alerts.html" class="group bg-[#f8f9ff] border border-[#e2e8f0] hover:border-[#007b7f] rounded-xl p-4 transition-all hover:shadow-md flex flex-col">
-          <div class="w-8 h-8 rounded-lg bg-[#ba1a1a]/10 text-[#ba1a1a] flex items-center justify-center mb-3 group-hover:bg-[#ba1a1a] group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-lg">crisis_alert</span>
-          </div>
-          <h3 class="font-semibold text-sm text-[#0b1c30] mb-1">4. Clinical Alerts</h3>
-          <p class="text-xs text-[#64748b] flex-1 mb-3">Triage feed with Critical, Warning and Info alarms & quick escalations.</p>
-          <span class="text-xs font-semibold text-[#007b7f] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">Open Screen &rarr;</span>
-        </a>
-
-        <!-- Card 5 -->
-        <a href="patient-log.html" class="group bg-[#f8f9ff] border border-[#e2e8f0] hover:border-[#007b7f] rounded-xl p-4 transition-all hover:shadow-md flex flex-col">
-          <div class="w-8 h-8 rounded-lg bg-[#007b7f]/10 text-[#007b7f] flex items-center justify-center mb-3 group-hover:bg-[#007b7f] group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-lg">history_edu</span>
-          </div>
-          <h3 class="font-semibold text-sm text-[#0b1c30] mb-1">5. Patient Log</h3>
-          <p class="text-xs text-[#64748b] flex-1 mb-3">Telemetry history, trend charts, nurse clinical notes & PDF exports.</p>
-          <span class="text-xs font-semibold text-[#007b7f] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">Open Screen &rarr;</span>
-        </a>
-      </div>
+    <!-- Footer Text -->
+    <div class="text-center mt-6">
+      <p class="text-xs text-slate-400">VITALERT Clinical Suite v1.0 · NephroAsia Dialysis Center</p>
     </div>
   </main>
 
-  <!-- Footer -->
-  <footer class="bg-white border-t border-[#e2e8f0] py-4 px-6 text-center text-xs text-[#64748b]">
-    Vitalert Patient Monitoring System &bull; Built with Stitch Loop &amp; Antigravity
-  </footer>
+  <script>
+    document.getElementById('signInForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      window.location.href = 'dashboard.html';
+    });
+  </script>
 </body>
 </html>
