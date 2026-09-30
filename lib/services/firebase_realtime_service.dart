@@ -392,6 +392,18 @@ class FirebaseRealtimeService {
           sessionStatus = 'Waiting';
         }
 
+        // Auto-promote to Ongoing when the device starts sending live readings
+        // and the database status hasn't been updated yet.
+        final isReceivingLiveData = !hasNoDevice && liveBpm > 0 && liveSpO2 > 0;
+        if (isReceivingLiveData && sessionStatus == 'Waiting') {
+          sessionStatus = 'Ongoing';
+          // Sync the updated status back to Firebase
+          http.patch(
+            Uri.parse('$databaseUrl/patients/$patientId.json'),
+            body: '{"status":"Ongoing"}',
+          ).catchError((_) {});
+        }
+
         final overallStatus = (liveBpm > 0 && liveSpO2 > 0)
             ? VitalThresholds.evaluateVitals(liveBpm, liveSpO2)
             : AlertSeverity.info;
