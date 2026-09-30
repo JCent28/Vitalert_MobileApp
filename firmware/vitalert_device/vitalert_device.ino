@@ -59,8 +59,8 @@ const unsigned long FINGER_TIMEOUT_MS   = 1500; // 1.5s debounce before declarin
 // ==================================================================================
 const int CRIT_MAX_HR   = 120; // > 120 BPM: Critical Tachycardia
 const int WARN_MAX_HR   = 100; // 101 - 120 BPM: Warning Elevated
-const int WARN_MIN_HR   = 70;  // 60 - 69 BPM: Warning Low
-const int CRIT_MIN_HR   = 60;  // < 60 BPM: Critical Bradycardia
+const int WARN_MIN_HR   = 60;  // 50 - 59 BPM: Warning Low
+const int CRIT_MIN_HR   = 50;  // < 50 BPM: Critical Bradycardia
 
 const int WARN_MIN_SPO2 = 95;  // 90% - 94%: Warning Decreased SpO2
 const int CRIT_MIN_SPO2 = 90;  // < 90%: Critical Hypoxia
@@ -89,7 +89,7 @@ unsigned long lastBeatTime = 0;
 unsigned long lastFingerSeenTime = 0;
 unsigned long lastUploadTime = 0;
 unsigned long lastOledTime = 0;
-unsigned long lastWaitingUpload = 0;    // Throttle for no-pulse Waiting pings
+unsigned long lastWaitingUpload = 0;        // Throttle for no-pulse Waiting pings
 const unsigned long WAITING_UPLOAD_INTERVAL = 5000; // 5s cadence when no finger present
 
 float smoothedBpm = 0.0;
@@ -276,7 +276,7 @@ void loop() {
       sendData(0, 0, "Waiting");
       wasFingerPresent = true;
     } else {
-      // ❌ No finger — throttled Waiting ping every 5s so Firebase stays up-to-date
+      // ❌ No finger — throttled Waiting ping every 5s so Firebase stays current
       if (now - lastWaitingUpload >= WAITING_UPLOAD_INTERVAL) {
         sendData(0, 0, "Waiting");
         lastWaitingUpload = now;
@@ -393,11 +393,11 @@ void processSample(uint32_t ir, uint32_t red) {
 VitalSeverity evaluateVitals(int hr, int spo2) {
   if (hr <= 0 || spo2 <= 0) return SEVERITY_NORMAL;
 
-  // CRITICAL CHECK (> 120 or < 60 BPM | < 90% SpO2)
+  // CRITICAL CHECK (> 120 or < 50 BPM | < 90% SpO2)
   if (hr > CRIT_MAX_HR || hr < CRIT_MIN_HR || spo2 < CRIT_MIN_SPO2) {
     return SEVERITY_CRITICAL;
   }
-  // WARNING CHECK (101-120 or 60-69 BPM | 90-94% SpO2)
+  // WARNING CHECK (101-120 or 50-59 BPM | 90-94% SpO2)
   if (hr > WARN_MAX_HR || hr < WARN_MIN_HR || spo2 < WARN_MIN_SPO2) {
     return SEVERITY_WARNING;
   }
