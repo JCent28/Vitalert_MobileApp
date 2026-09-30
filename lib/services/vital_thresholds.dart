@@ -40,10 +40,10 @@ class VitalThresholds {
       messages.add('Critical Tachycardia: BPM elevated to $hr (Threshold: > ${criticalMaxHr.toInt()})');
     } else if (hr > warningMaxHr) {
       messages.add('BPM elevated to $hr bpm (Threshold: > ${warningMaxHr.toInt()})');
-    } else if (hr < warningMinHr) {
-      messages.add('Low BPM: $hr bpm (Warning range: ${criticalMinHr.toInt()}–${(warningMinHr - 1).toInt()} bpm)');
     } else if (hr < criticalMinHr) {
       messages.add('Critical Bradycardia: BPM dropped to $hr (Threshold: < ${criticalMinHr.toInt()})');
+    } else if (hr < warningMinHr) {
+      messages.add('Low BPM: $hr bpm (Warning range: ${criticalMinHr.toInt()}–${(warningMinHr - 1).toInt()} bpm)');
     }
 
     return messages.isNotEmpty ? messages.join(' • ') : 'Vitals within normal limits';
