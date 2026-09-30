@@ -8,8 +8,8 @@ class VitalThresholds {
   // Heart Rate Thresholds
   static const double criticalMaxHr = 120.0;
   static const double warningMaxHr = 100.0;
-  static const double warningMinHr = 70.0;
-  static const double criticalMinHr = 60.0;
+  static const double warningMinHr = 60.0;  // Warning low: 50–59 bpm (hr < 60)
+  static const double criticalMinHr = 50.0; // Critical low: < 50 bpm
 
   // Safe Ranges
   static const String hrSafeRangeText = '60 – 100 bpm';
@@ -40,8 +40,10 @@ class VitalThresholds {
       messages.add('Critical Tachycardia: BPM elevated to $hr (Threshold: > ${criticalMaxHr.toInt()})');
     } else if (hr > warningMaxHr) {
       messages.add('BPM elevated to $hr bpm (Threshold: > ${warningMaxHr.toInt()})');
+    } else if (hr < warningMinHr) {
+      messages.add('Low BPM: $hr bpm (Warning range: ${criticalMinHr.toInt()}–${(warningMinHr - 1).toInt()} bpm)');
     } else if (hr < criticalMinHr) {
-      messages.add('BPM low at $hr bpm (Threshold: < ${criticalMinHr.toInt()})');
+      messages.add('Critical Bradycardia: BPM dropped to $hr (Threshold: < ${criticalMinHr.toInt()})');
     }
 
     return messages.isNotEmpty ? messages.join(' • ') : 'Vitals within normal limits';
