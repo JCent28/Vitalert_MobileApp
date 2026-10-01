@@ -197,9 +197,17 @@ class FirebaseRealtimeService {
         List<PatientLogEvent> patientAlertEvents = [];
         List<PatientSessionHistory> sessionHistories = [];
 
-        if (!hasNoDevice && historyMap.containsKey(patientId) && historyMap[patientId] is Map) {
+        // Session history is permanent data — load it regardless of whether
+        // a device is currently attached. Only live telemetry needs hasNoDevice.
+        if (historyMap.containsKey(patientId) && historyMap[patientId] is Map) {
           final pHistory = Map<String, dynamic>.from(historyMap[patientId]);
-          final sessionKeys = pHistory.keys.toList()..sort();
+          // Sort numerically so session_10 comes after session_9, not before session_2
+          final sessionKeys = pHistory.keys.toList()
+            ..sort((a, b) {
+              final aNum = int.tryParse(a.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+              final bNum = int.tryParse(b.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+              return aNum.compareTo(bNum);
+            });
           for (final sKey in sessionKeys) {
             final sVal = pHistory[sKey];
             if (sVal is Map) {
@@ -227,14 +235,20 @@ class FirebaseRealtimeService {
                         ? AlertSeverity.critical
                         : (rSevStr == 'warning' ? AlertSeverity.warning : AlertSeverity.info);
 
+                    final remarkVal = r['remarks']?.toString() ?? r['remark']?.toString() ?? '';
+                    final timestampVal = r['timestamp']?.toString() ?? '';
+
                     sReadings.add(
                       PatientReading(
+                        id: rKey,
                         time: r['time'] ?? '00:00',
                         duration: r['duration'] ?? '1m',
                         hrBpm: b,
                         spO2: s,
                         status: (r['status'] ?? 'Normal').toString().toUpperCase(),
                         severity: rSeverity,
+                        remark: remarkVal,
+                        timestamp: timestampVal,
                       ),
                     );
                   }
@@ -289,14 +303,20 @@ class FirebaseRealtimeService {
                     ? AlertSeverity.critical
                     : (rSevStr == 'warning' ? AlertSeverity.warning : AlertSeverity.info);
 
+                final remarkVal = r['remarks']?.toString() ?? r['remark']?.toString() ?? '';
+                final timestampVal = r['timestamp']?.toString() ?? '';
+
                 recentReadings.add(
                   PatientReading(
+                    id: rKey,
                     time: r['time'] ?? '00:00',
                     duration: r['duration'] ?? '1m',
                     hrBpm: b,
                     spO2: s,
                     status: (r['status'] ?? 'Normal').toString().toUpperCase(),
                     severity: rSeverity,
+                    remark: remarkVal,
+                    timestamp: timestampVal,
                   ),
                 );
               }
@@ -401,7 +421,7 @@ class FirebaseRealtimeService {
           http.patch(
             Uri.parse('$databaseUrl/patients/$patientId.json'),
             body: '{"status":"Ongoing"}',
-          ).catchError((_) {});
+          ).catchError((_) => http.Response('', 500));
         }
 
         final overallStatus = (liveBpm > 0 && liveSpO2 > 0)
@@ -780,6 +800,37 @@ class FirebaseRealtimeService {
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('Record note error: $e');
+      return false;
+    }
+  }
+
+  // 9. Update Remark for a specific reading / timestamp in Firebase RTDB
+  Future<bool> updateReadingRemark({
+    required String patientId,
+    required String sessionNumber,
+    required String readingId,
+    required String remark,
+  }) async {
+    try {
+      final cleanSession = sessionNumber.replaceAll(RegExp(r'[^0-9]'), '');
+      final sessionKey = cleanSession.isNotEmpty ? 'session_$cleanSession' : 'session_1';
+
+      final patchBody = jsonEncode({
+        'remarks': remark,
+      });
+
+      final res = await http.patch(
+        Uri.parse('$databaseUrl/history/$patientId/$sessionKey/readings/$readingId.json'),
+        body: patchBody,
+      );
+
+      if (res.statusCode == 200) {
+        syncData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('updateReadingRemark error: $e');
       return false;
     }
   }

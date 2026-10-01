@@ -1,21 +1,51 @@
 import 'alert_item.dart';
 
 class PatientReading {
+  final String id;
   final String time;
   final String duration;
   final int hrBpm;
   final int spO2;
   final String status;
   final AlertSeverity severity;
+  final String remark;
+  final String timestamp;
 
   const PatientReading({
+    this.id = '',
     required this.time,
     required this.duration,
     required this.hrBpm,
     required this.spO2,
     required this.status,
     required this.severity,
+    this.remark = '',
+    this.timestamp = '',
   });
+
+  PatientReading copyWith({
+    String? id,
+    String? time,
+    String? duration,
+    int? hrBpm,
+    int? spO2,
+    String? status,
+    AlertSeverity? severity,
+    String? remark,
+    String? timestamp,
+  }) {
+    return PatientReading(
+      id: id ?? this.id,
+      time: time ?? this.time,
+      duration: duration ?? this.duration,
+      hrBpm: hrBpm ?? this.hrBpm,
+      spO2: spO2 ?? this.spO2,
+      status: status ?? this.status,
+      severity: severity ?? this.severity,
+      remark: remark ?? this.remark,
+      timestamp: timestamp ?? this.timestamp,
+    );
+  }
 }
 
 class PatientLogEvent {

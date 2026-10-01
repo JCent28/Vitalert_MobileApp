@@ -797,14 +797,15 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   color: AppColors.background,
                   child: Row(
                     children: [
-                      Expanded(flex: 2, child: Text('TIMESTAMP', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10))),
-                      Expanded(child: Center(child: Text('BPM', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10)))),
-                      Expanded(child: Center(child: Text('SpO₂', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10)))),
-                      Expanded(child: Align(alignment: Alignment.centerRight, child: Text('STATUS', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10)))),
+                      Expanded(flex: 3, child: Text('TIMESTAMP', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10))),
+                      Expanded(flex: 2, child: Center(child: Text('BPM', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10)))),
+                      Expanded(flex: 2, child: Center(child: Text('SpO₂', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10)))),
+                      Expanded(flex: 2, child: Center(child: Text('STATUS', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10)))),
+                      Expanded(flex: 4, child: Align(alignment: Alignment.centerRight, child: Text('REMARK', style: AppTypography.labelCaps(color: AppColors.textMuted, fontSize: 10)))),
                     ],
                   ),
                 ),
@@ -830,48 +831,50 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                         final isCrit = reading.severity == AlertSeverity.critical;
                         final isWarn = reading.severity == AlertSeverity.warning;
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                           decoration: const BoxDecoration(
                             border: Border(bottom: BorderSide(color: AppColors.borderLight, width: 0.8)),
                           ),
                           child: Row(
                             children: [
                               Expanded(
-                                flex: 2,
+                                flex: 3,
                                 child: Text(
                                   '${reading.time} (${reading.duration})',
-                                  style: AppTypography.bodyLg(color: AppColors.textMain, weight: FontWeight.bold).copyWith(fontSize: 12),
+                                  style: AppTypography.bodyLg(color: AppColors.textMain, weight: FontWeight.bold).copyWith(fontSize: 11.5),
                                 ),
                               ),
                               Expanded(
+                                flex: 2,
                                 child: Center(
                                   child: Text(
                                     '${reading.hrBpm}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                      fontSize: 12.5,
                                       color: isCrit ? AppColors.criticalRed : isWarn ? AppColors.warningAmber : AppColors.textMain,
                                     ),
                                   ),
                                 ),
                               ),
                               Expanded(
+                                flex: 2,
                                 child: Center(
                                   child: Text(
                                     '${reading.spO2}%',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                      fontSize: 12.5,
                                       color: reading.spO2 < 95 ? AppColors.warningAmber : AppColors.textMain,
                                     ),
                                   ),
                                 ),
                               ),
                               Expanded(
-                                child: Align(
-                                  alignment: Alignment.centerRight,
+                                flex: 2,
+                                child: Center(
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: isCrit
                                           ? AppColors.errorBg
@@ -882,16 +885,84 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                                     ),
                                     child: Text(
                                       reading.status,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: isCrit
                                             ? AppColors.criticalRed
                                             : isWarn
                                                 ? AppColors.warningAmber
                                                 : AppColors.normalGreen,
-                                        fontSize: 9.5,
+                                        fontSize: 9,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 4,
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: InkWell(
+                                    onTap: () => _showEditRemarkModal(
+                                      context,
+                                      patientId: patient.id,
+                                      sessionNumber: activeSessionNumber,
+                                      reading: reading,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: reading.remark.isNotEmpty
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF1F5F9),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    reading.remark,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF1E293B),
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 3),
+                                                const Icon(Icons.edit_outlined, size: 10, color: Color(0xFF64748B)),
+                                              ],
+                                            ),
+                                          )
+                                        : Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF0FDFA),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: const Color(0xFF99F6E4)),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.add, size: 10, color: Color(0xFF0F766E)),
+                                                SizedBox(width: 2),
+                                                Text(
+                                                  'Remark',
+                                                  style: TextStyle(
+                                                    color: Color(0xFF0F766E),
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                   ),
                                 ),
                               ),
@@ -1525,6 +1596,340 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showEditRemarkModal(
+    BuildContext context, {
+    required String patientId,
+    required String sessionNumber,
+    required PatientReading reading,
+  }) {
+    final textController = TextEditingController(text: reading.remark);
+    bool isSaving = false;
+
+    final quickSuggestions = [
+      'Patient resting comfortably',
+      'Mild cramping reported',
+      'Position adjusted',
+      'Dizziness reported',
+      'Fluid rate adjusted',
+      'Normal vital signs',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isCrit = reading.severity == AlertSeverity.critical;
+            final isWarn = reading.severity == AlertSeverity.warning;
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 12,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Drag Handle
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Title Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDFA),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: const Color(0xFFCCFBF1)),
+                              ),
+                              child: const Icon(
+                                Icons.edit_note_rounded,
+                                size: 20,
+                                color: Color(0xFF0F766E),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Reading Remark',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                Text(
+                                  'Timestamp: ${reading.time} (${reading.duration}) • Session $sessionNumber',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Context Vitals Card
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.favorite_rounded, size: 14, color: Color(0xFFEF4444)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${reading.hrBpm} BPM',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                              ),
+                            ],
+                          ),
+                          Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
+                          Row(
+                            children: [
+                              const Icon(Icons.air_rounded, size: 14, color: Color(0xFF0284C7)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${reading.spO2}% SpO₂',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                              ),
+                            ],
+                          ),
+                          Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isCrit
+                                  ? AppColors.errorBg
+                                  : isWarn
+                                      ? AppColors.warningAmberBg
+                                      : AppColors.normalGreenBg,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              reading.status,
+                              style: TextStyle(
+                                color: isCrit
+                                    ? AppColors.criticalRed
+                                    : isWarn
+                                        ? AppColors.warningAmber
+                                        : AppColors.normalGreen,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Quick Suggestions
+                    const Text(
+                      'Common Observations (Tap to apply):',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: quickSuggestions.map((tag) {
+                        return InkWell(
+                          onTap: () {
+                            setModalState(() {
+                              if (textController.text.trim().isEmpty) {
+                                textController.text = tag;
+                              } else if (!textController.text.contains(tag)) {
+                                textController.text = '${textController.text.trim()}; $tag';
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.add, size: 12, color: Color(0xFF0F766E)),
+                                const SizedBox(width: 3),
+                                Text(
+                                  tag,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Text Field
+                    TextField(
+                      controller: textController,
+                      maxLines: 3,
+                      autofocus: reading.remark.isEmpty,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                      decoration: InputDecoration(
+                        hintText: 'Type observation or note for this reading timestamp...',
+                        hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.all(12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Action Buttons Row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF64748B),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            onPressed: isSaving
+                                ? null
+                                : () async {
+                                    setModalState(() {
+                                      isSaving = true;
+                                    });
+
+                                    final enteredRemark = textController.text.trim();
+                                    final readingKey = reading.id.isNotEmpty ? reading.id : reading.time;
+
+                                    final success = await widget.state.updateReadingRemark(
+                                      patientId: patientId,
+                                      sessionNumber: sessionNumber,
+                                      readingId: readingKey,
+                                      remark: enteredRemark,
+                                    );
+
+                                    if (context.mounted) {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            success
+                                                ? 'Remark saved for timestamp ${reading.time}'
+                                                : 'Failed to save remark to database',
+                                          ),
+                                          backgroundColor: success ? const Color(0xFF0F766E) : const Color(0xFFDC2626),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: isSaving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.cloud_upload_outlined, size: 18),
+                            label: Text(
+                              isSaving ? 'Saving...' : 'Save to Database',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF005953),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );

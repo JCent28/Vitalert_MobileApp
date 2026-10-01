@@ -296,7 +296,8 @@
                 <th class="px-3.5 py-2.5">Timestamp</th>
                 <th class="px-3 py-2.5 text-center">BPM</th>
                 <th class="px-3 py-2.5 text-center">SpO₂</th>
-                <th class="px-3.5 py-2.5 text-right">Status</th>
+                <th class="px-3 py-2.5 text-center">Status</th>
+                <th class="px-3.5 py-2.5 text-right">Remark</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -304,25 +305,45 @@
                 <td class="px-3.5 py-2.5 font-bold text-slate-900">21:18 <span class="text-[10px] text-slate-400 font-normal">(4m)</span></td>
                 <td class="px-3 py-2.5 text-center font-bold text-rose-600">125</td>
                 <td class="px-3 py-2.5 text-center font-bold text-slate-800">97%</td>
-                <td class="px-3.5 py-2.5 text-right font-bold text-rose-600 uppercase text-[10px]">Critical</td>
+                <td class="px-3 py-2.5 text-center font-bold text-rose-600 uppercase text-[10px]">Critical</td>
+                <td class="px-3.5 py-2.5 text-right">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-medium text-slate-700">
+                    BPM high; oxygen given
+                  </span>
+                </td>
               </tr>
               <tr>
                 <td class="px-3.5 py-2.5 font-bold text-slate-900">21:16 <span class="text-[10px] text-slate-400 font-normal">(3m)</span></td>
                 <td class="px-3 py-2.5 text-center font-bold text-amber-500">91</td>
                 <td class="px-3 py-2.5 text-center font-bold text-amber-500">91%</td>
-                <td class="px-3.5 py-2.5 text-right font-bold text-amber-500 uppercase text-[10px]">Warning</td>
+                <td class="px-3 py-2.5 text-center font-bold text-amber-500 uppercase text-[10px]">Warning</td>
+                <td class="px-3.5 py-2.5 text-right">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-medium text-slate-700">
+                    SpO₂ drop monitored
+                  </span>
+                </td>
               </tr>
               <tr>
                 <td class="px-3.5 py-2.5 font-bold text-slate-900">21:15 <span class="text-[10px] text-slate-400 font-normal">(2m)</span></td>
                 <td class="px-3 py-2.5 text-center font-bold text-amber-500">107</td>
                 <td class="px-3 py-2.5 text-center font-bold text-amber-500">91%</td>
-                <td class="px-3.5 py-2.5 text-right font-bold text-amber-500 uppercase text-[10px]">Warning</td>
+                <td class="px-3 py-2.5 text-center font-bold text-amber-500 uppercase text-[10px]">Warning</td>
+                <td class="px-3.5 py-2.5 text-right">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-medium text-slate-700">
+                    Patient resting
+                  </span>
+                </td>
               </tr>
               <tr>
                 <td class="px-3.5 py-2.5 font-bold text-slate-900">21:14 <span class="text-[10px] text-slate-400 font-normal">(1m)</span></td>
                 <td class="px-3 py-2.5 text-center font-bold text-slate-700">70</td>
                 <td class="px-3 py-2.5 text-center font-bold text-slate-700">98%</td>
-                <td class="px-3.5 py-2.5 text-right font-bold text-emerald-600 uppercase text-[10px]">Normal</td>
+                <td class="px-3 py-2.5 text-center font-bold text-emerald-600 uppercase text-[10px]">Normal</td>
+                <td class="px-3.5 py-2.5 text-right">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-teal-50 border border-teal-200 text-[10px] font-bold text-teal-700 cursor-pointer">
+                    + Add
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>

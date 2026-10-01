@@ -1624,16 +1624,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.swap_horiz, size: 14, color: AppColors.textMuted),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Swipe horizontally to view all clinical columns',
-                    style: AppTypography.bodyMd(color: AppColors.textMuted, fontSize: 11),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.swap_horiz, size: 14, color: AppColors.textMuted),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Swipe horizontally to view all clinical columns',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodyMd(color: AppColors.textMuted, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '10 Columns',
                 style: AppTypography.labelCaps(color: AppColors.primary, fontSize: 10, weight: FontWeight.bold),
@@ -2015,8 +2022,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required IconData icon,
     required Color color,
   }) {
+    final isVerySmall = context.isVerySmallPhone;
+    final isSmall = context.isSmallPhone;
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(isVerySmall ? 10 : (isSmall ? 12 : 14)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -2042,7 +2052,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.labelCaps(
                     color: AppColors.textMuted,
-                    fontSize: 10,
+                    fontSize: isVerySmall ? 9 : 10,
                     weight: FontWeight.w700,
                   ),
                 ),
@@ -2058,7 +2068,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: isVerySmall ? 19 : 22,
                   fontWeight: FontWeight.w900,
                   color: color,
                   fontFamily: 'monospace',
@@ -2066,9 +2076,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               if (subvalue != null) ...[
                 const SizedBox(width: 2),
-                Text(
-                  subvalue,
-                  style: AppTypography.bodyMd(color: AppColors.textMuted, fontSize: 11),
+                Flexible(
+                  child: Text(
+                    subvalue,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodyMd(color: AppColors.textMuted, fontSize: isVerySmall ? 10 : 11),
+                  ),
                 ),
               ],
             ],

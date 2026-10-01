@@ -22,6 +22,45 @@ class MainNavigationScaffold extends StatefulWidget {
 }
 
 class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
+  /// Shows a confirmation dialog before signing out to prevent accidental logouts.
+  void _confirmSignOut(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 22),
+            SizedBox(width: 8),
+            Text(
+              'Sign Out?',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+        content: const Text(
+          'You will need to sign in again to access patient monitoring.\n\nMake sure all active alerts have been acknowledged before leaving.',
+          style: TextStyle(fontSize: 13.5, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            icon: const Icon(Icons.logout_rounded, size: 16),
+            label: const Text('Sign Out'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onSignOut();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -37,7 +76,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
             onBack: () => widget.state.setTabIndex(0),
             onLiveTap: () => widget.state.setTabIndex(1),
             onAlertsTap: () => widget.state.setTabIndex(1),
-            onSignOutTap: widget.onSignOut,
+            onSignOutTap: () => _confirmSignOut(context),
           ),
           body: IndexedStack(
             index: currentIndex,
@@ -49,7 +88,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
                   widget.state.selectPatient(patientId);
                   widget.state.setTabIndex(2);
                 },
-                onSignOut: widget.onSignOut,
+                onSignOut: () => _confirmSignOut(context),
                 onAlertsTap: () => widget.state.setTabIndex(1),
               ),
 
@@ -72,7 +111,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
           bottomNavigationBar: AppBottomBar(
             currentIndex: currentIndex,
             onTabSelected: (index) => widget.state.setTabIndex(index),
-            onSignOut: widget.onSignOut,
+            onSignOut: () => _confirmSignOut(context),
             activeAlertCount: activeAlertCount,
           ),
         );

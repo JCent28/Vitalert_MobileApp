@@ -46,6 +46,11 @@ class _VitalertAppState extends State<VitalertApp> {
         child: AnimatedBuilder(
           animation: _appState,
           builder: (context, _) {
+            // While reading saved session from disk, show a brief splash
+            if (_appState.isRestoringSession) {
+              return const _SplashScreen();
+            }
+
             if (!_appState.isLoggedIn) {
               return SignInScreen(
                 state: _appState,
@@ -109,6 +114,76 @@ class ResponsiveMobileContainer extends StatelessWidget {
         // On mobile, render edge-to-edge
         return child;
       },
+    );
+  }
+}
+
+/// Shown briefly while the app reads the saved session from local storage.
+/// Typically visible for under 300ms on most devices.
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Logo mark
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFF14B8A6),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x4014B8A6),
+                    blurRadius: 28,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.monitor_heart_rounded,
+                color: Colors.white,
+                size: 38,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'VITALERT',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 3,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Patient Monitoring System',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 40),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF14B8A6)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../models/patient.dart';
 import '../models/user_model.dart';
 import '../services/alert_notification_service.dart';
 import '../services/firebase_realtime_service.dart';
+import '../services/session_storage_service.dart';
 
 class AppState extends ChangeNotifier {
   final FirebaseRealtimeService _rtdbService = FirebaseRealtimeService();
@@ -14,23 +15,21 @@ class AppState extends ChangeNotifier {
   StreamSubscription? _alertsSub;
   StreamSubscription? _devicesSub;
 
-  bool _isLoggedIn = true;
-  UserModel? _currentUser = const UserModel(
-    staffId: 'HN-00312',
-    name: 'Clark Kent',
-    role: 'Head Nurse',
-  );
+  bool _isLoggedIn = false;
+  bool _isRestoringSession = true; // true while reading saved session from disk
+  UserModel? _currentUser;
 
   final String _shiftTime = 'Shift A · Friday, August 21, 2026';
   int _currentTabIndex = 0;
   String _selectedPatientId = '-P-Ufwr3l6JLCYU9PZEf';
 
   bool get isLoggedIn => _isLoggedIn;
+  bool get isRestoringSession => _isRestoringSession;
   UserModel? get currentUser => _currentUser;
-  String get currentStaffId => _currentUser?.staffId ?? 'HN-00312';
-  String get nurseName => _currentUser?.name ?? 'Clark Kent';
-  String get userRole => _currentUser?.role ?? 'Head Nurse';
-  bool get isHeadNurse => _currentUser?.isHeadNurse ?? true;
+  String get currentStaffId => _currentUser?.staffId ?? '';
+  String get nurseName => _currentUser?.name ?? '';
+  String get userRole => _currentUser?.role ?? '';
+  bool get isHeadNurse => _currentUser?.isHeadNurse ?? false;
   bool get isStaffNurse => _currentUser?.isStaffNurse ?? false;
   String get shiftTime => _shiftTime;
   int get currentTabIndex => _currentTabIndex;
@@ -43,6 +42,24 @@ class AppState extends ChangeNotifier {
   AppState() {
     _initData();
     _bindFirebase();
+    _restoreSession();
+  }
+
+  /// Reads the previously saved login session from disk.
+  /// If a valid session exists the user goes straight to the dashboard;
+  /// otherwise they are shown the sign-in screen.
+  Future<void> _restoreSession() async {
+    final saved = await SessionStorageService.loadSession();
+    if (saved != null) {
+      _currentUser = UserModel(
+        staffId: saved['staffId']!,
+        name: saved['name']!,
+        role: saved['role']!,
+      );
+      _isLoggedIn = true;
+    }
+    _isRestoringSession = false;
+    notifyListeners();
   }
 
   void _bindFirebase() {
@@ -132,6 +149,12 @@ class AppState extends ChangeNotifier {
       _currentUser = user;
       _isLoggedIn = true;
       _currentTabIndex = 0;
+      // Persist the session so the app restores it on next launch
+      await SessionStorageService.saveSession(
+        staffId: user.staffId,
+        name: user.name,
+        role: user.role,
+      );
       notifyListeners();
       return true;
     }
@@ -149,7 +172,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void signOut() {
+  Future<void> signOut() async {
+    // Clear the persisted session first so restart won't auto-login
+    await SessionStorageService.clearSession();
     _isLoggedIn = false;
     _currentUser = null;
     notifyListeners();
@@ -296,6 +321,66 @@ class AppState extends ChangeNotifier {
       note: note,
       nurseName: nurseName,
       staffId: currentStaffId,
+    );
+  }
+
+  Future<bool> updateReadingRemark({
+    required String patientId,
+    required String sessionNumber,
+    required String readingId,
+    required String remark,
+  }) async {
+    final pIdx = _patients.indexWhere((p) => p.id == patientId);
+    if (pIdx != -1) {
+      final p = _patients[pIdx];
+      final cleanNum = sessionNumber.replaceAll(RegExp(r'[^0-9]'), '');
+
+      final updatedHistories = p.sessionHistories.map((s) {
+        if (s.sessionNumber == cleanNum || s.sessionNumber == sessionNumber) {
+          final updatedReadings = s.readings.map((r) {
+            if (r.id == readingId) {
+              return r.copyWith(remark: remark);
+            }
+            return r;
+          }).toList();
+          return PatientSessionHistory(
+            sessionNumber: s.sessionNumber,
+            sessionTitle: s.sessionTitle,
+            startTime: s.startTime,
+            duration: s.duration,
+            highestHr: s.highestHr,
+            lowestHr: s.lowestHr,
+            avgHr: s.avgHr,
+            highestSpO2: s.highestSpO2,
+            lowestSpO2: s.lowestSpO2,
+            avgSpO2: s.avgSpO2,
+            hrHistory: s.hrHistory,
+            spO2History: s.spO2History,
+            readings: updatedReadings,
+          );
+        }
+        return s;
+      }).toList();
+
+      final updatedRecent = p.recentReadings.map((r) {
+        if (r.id == readingId) {
+          return r.copyWith(remark: remark);
+        }
+        return r;
+      }).toList();
+
+      _patients[pIdx] = p.copyWith(
+        sessionHistories: updatedHistories,
+        recentReadings: updatedRecent,
+      );
+      notifyListeners();
+    }
+
+    return await _rtdbService.updateReadingRemark(
+      patientId: patientId,
+      sessionNumber: sessionNumber,
+      readingId: readingId,
+      remark: remark,
     );
   }
 
