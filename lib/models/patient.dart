@@ -71,6 +71,7 @@ class PatientSessionHistory {
   final String sessionTitle;
   final String startTime;
   final String duration;
+  final String date;
   final int highestHr;
   final int lowestHr;
   final double avgHr;
@@ -86,6 +87,7 @@ class PatientSessionHistory {
     required this.sessionTitle,
     this.startTime = '--',
     this.duration = '--',
+    this.date = '',
     this.highestHr = 0,
     this.lowestHr = 0,
     this.avgHr = 0.0,

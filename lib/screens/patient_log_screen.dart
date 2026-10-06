@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../models/alert_item.dart';
 import '../models/patient.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/session_dialogs.dart';
+import '../services/export_service.dart';
 
 class PatientLogScreen extends StatefulWidget {
   final AppState state;
@@ -32,6 +35,23 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
     'Full Session',
   ];
 
+  String _formatSessionDate(PatientSessionHistory session, Patient patient) {
+    if (session.date.isNotEmpty) {
+      return session.date;
+    }
+    if (patient.date.isNotEmpty &&
+        !patient.date.contains('August 21, 2026') &&
+        !patient.date.contains('Aug 21, 2026')) {
+      try {
+        final parsed = DateFormat('EEEE, MMMM d, yyyy').parse(patient.date);
+        return DateFormat('MMM d, yyyy').format(parsed);
+      } catch (_) {
+        return patient.date;
+      }
+    }
+    return DateFormat('MMM d, yyyy').format(DateTime.now());
+  }
+
   @override
   Widget build(BuildContext context) {
     final patient = widget.state.selectedPatient;
@@ -53,6 +73,7 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
               sessionTitle: 'Session $currentSessionNumber',
               startTime: patient.startTime,
               duration: patient.duration,
+              date: DateFormat('MMM d, yyyy').format(DateTime.now()),
               highestHr: patient.highestHr,
               lowestHr: patient.lowestHr,
               avgHr: patient.avgHr,
@@ -98,39 +119,57 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Clinical note recorder opened'),
-                        backgroundColor: AppColors.primary,
-                        duration: Duration(seconds: 1),
+                child: patient.sessionStatus.toLowerCase() == 'ongoing'
+                    ? ElevatedButton.icon(
+                        key: const ValueKey('patient_log_session_action_btn'),
+                        onPressed: () => showEndSessionDialog(
+                          context: context,
+                          state: widget.state,
+                          patient: patient,
+                        ),
+                        icon: const Icon(Icons.stop_circle_outlined, size: 16),
+                        label: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('End Session', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                      )
+                    : ElevatedButton.icon(
+                        key: const ValueKey('patient_log_session_action_btn'),
+                        onPressed: () => showStartNextSessionDialog(
+                          context: context,
+                          state: widget.state,
+                          patient: patient,
+                        ),
+                        icon: const Icon(Icons.play_circle_outline, size: 16),
+                        label: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('Start Session', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text('Record Note', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    elevation: 0,
-                  ),
-                ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
+                  key: const ValueKey('patient_log_export_btn'),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Exporting session PDF/CSV report...'),
-                        duration: Duration(seconds: 1),
-                      ),
+                    _showExportModal(
+                      context,
+                      patient: patient,
+                      session: selectedSessionHistory,
                     );
                   },
                   icon: const Icon(Icons.download_rounded, size: 16),
@@ -384,7 +423,7 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                                   Text(
                                     selectedSessionHistory.startTime == '--' || (isSelectedSessionCurrent && patient.sessionStatus == 'Waiting')
                                         ? 'Started: Session not started yet'
-                                        : 'Started: Aug 21, 2026 ${selectedSessionHistory.startTime}',
+                                        : 'Started: ${_formatSessionDate(selectedSessionHistory, patient)} ${selectedSessionHistory.startTime}',
                                     style: const TextStyle(
                                       color: Color(0xFF334155),
                                       fontSize: 12.5,
@@ -1939,6 +1978,364 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
     final match = RegExp(r'\d+').firstMatch(session);
     return match != null ? match.group(0)! : '1';
   }
+
+  void _showExportModal(
+    BuildContext context, {
+    required Patient patient,
+    required PatientSessionHistory session,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Title row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDFA),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFCCFBF1)),
+                          ),
+                          child: const Icon(
+                            Icons.file_download_outlined,
+                            size: 20,
+                            color: Color(0xFF0F766E),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Export Session Report',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              '${patient.name} (${patient.mrn}) • ${session.sessionTitle}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Session Summary Info Banner
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.history_rounded, size: 14, color: Color(0xFF0F766E)),
+                          const SizedBox(width: 5),
+                          Text(
+                            '${session.readings.length} readings',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                          ),
+                        ],
+                      ),
+                      Container(width: 1, height: 14, color: const Color(0xFFCBD5E1)),
+                      Row(
+                        children: [
+                          const Icon(Icons.timer_outlined, size: 14, color: Color(0xFF0F766E)),
+                          const SizedBox(width: 5),
+                          Text(
+                            session.duration.isNotEmpty ? session.duration : '0m',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                          ),
+                        ],
+                      ),
+                      Container(width: 1, height: 14, color: const Color(0xFFCBD5E1)),
+                      Row(
+                        children: [
+                          const Icon(Icons.event_note_outlined, size: 14, color: Color(0xFF0F766E)),
+                          const SizedBox(width: 5),
+                          Text(
+                            session.date.isNotEmpty
+                                ? session.date
+                                : (patient.date.isNotEmpty && !patient.date.contains('August 21, 2026')
+                                    ? patient.date
+                                    : DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now())),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Option 1: Preview & Save PDF (Recommended)
+                _buildExportOptionTile(
+                  icon: Icons.picture_as_pdf_rounded,
+                  iconColor: const Color(0xFFE11D48),
+                  iconBg: const Color(0xFFFFF1F2),
+                  title: 'Save / Print PDF Report (Recommended)',
+                  subtitle: 'Preview full clinical summary and tap "Save as PDF" directly to your phone Downloads or Print.',
+                  badgeText: 'PDF',
+                  badgeColor: const Color(0xFFE11D48),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Opening PDF viewer & save dialog...'),
+                          ],
+                        ),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                    try {
+                      await ExportService.printOrSavePdf(patient: patient, session: session);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error generating PDF: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Option 2: Share PDF Report via Apps
+                _buildExportOptionTile(
+                  icon: Icons.share_rounded,
+                  iconColor: const Color(0xFF0284C7),
+                  iconBg: const Color(0xFFF0F9FF),
+                  title: 'Share PDF via Apps',
+                  subtitle: 'Send clinical PDF directly via Google Drive, Gmail, WhatsApp, or Bluetooth.',
+                  badgeText: 'SHARE',
+                  badgeColor: const Color(0xFF0284C7),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Opening share menu for PDF...'),
+                          ],
+                        ),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                    try {
+                      await ExportService.shareSessionPdf(patient: patient, session: session);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error sharing PDF: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Option 3: Export Telemetry Data (CSV)
+                _buildExportOptionTile(
+                  icon: Icons.table_chart_rounded,
+                  iconColor: const Color(0xFF059669),
+                  iconBg: const Color(0xFFECFDF5),
+                  title: 'Export Telemetry Data (CSV)',
+                  subtitle: 'Raw comma-separated dataset for Excel, Google Sheets, or EHR analysis.',
+                  badgeText: 'CSV',
+                  badgeColor: const Color(0xFF059669),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Generating CSV data file...'),
+                          ],
+                        ),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                    try {
+                      await ExportService.shareSessionCsv(patient: patient, session: session);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error exporting CSV: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExportOptionTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String subtitle,
+    required String badgeText,
+    required Color badgeColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x04000000),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withAlpha(25),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: badgeColor.withAlpha(80)),
+                        ),
+                        child: Text(
+                          badgeText,
+                          style: TextStyle(
+                            color: badgeColor,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 20),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class TelemetryDataPoint {
@@ -2009,7 +2406,8 @@ class _InteractiveVitalGraphCardState extends State<InteractiveVitalGraphCard> {
     if (usableWidth <= 0) return;
     final relX = (localPos.dx - leftMargin).clamp(0.0, usableWidth);
     final frac = relX / usableWidth;
-    final idx = (frac * (widget.dataPoints.length - 1)).round().clamp(0, widget.dataPoints.length - 1);
+    final count = widget.dataPoints.length;
+    final idx = count <= 1 ? 0 : (frac * (count - 1)).round().clamp(0, count - 1);
     setState(() {
       if (_hoveredIndex == idx) {
         _hoveredIndex = null; // Toggle off if clicked again
@@ -2026,7 +2424,8 @@ class _InteractiveVitalGraphCardState extends State<InteractiveVitalGraphCard> {
     if (usableWidth <= 0) return;
     final relX = (localPos.dx - leftMargin).clamp(0.0, usableWidth);
     final frac = relX / usableWidth;
-    final idx = (frac * (widget.dataPoints.length - 1)).round().clamp(0, widget.dataPoints.length - 1);
+    final count = widget.dataPoints.length;
+    final idx = count <= 1 ? 0 : (frac * (count - 1)).round().clamp(0, count - 1);
     setState(() {
       _hoveredIndex = idx;
     });
@@ -2104,8 +2503,14 @@ class _InteractiveVitalGraphCardState extends State<InteractiveVitalGraphCard> {
                   usableWidth > 0 &&
                   usableHeight > 0) {
                 activePoint = widget.dataPoints[_hoveredIndex!];
-                pointX = leftMargin + (_hoveredIndex! / (widget.dataPoints.length - 1)) * usableWidth;
-                final normY = (activePoint.value - widget.yMin) / (widget.yMax - widget.yMin);
+                final count = widget.dataPoints.length;
+                pointX = count <= 1
+                    ? leftMargin + (usableWidth / 2)
+                    : leftMargin + (_hoveredIndex! / (count - 1)) * usableWidth;
+                final yRange = (widget.yMax - widget.yMin).abs() > 0.001
+                    ? (widget.yMax - widget.yMin)
+                    : 1.0;
+                final normY = (activePoint.value - widget.yMin) / yRange;
                 pointY = topMargin + usableHeight - (normY.clamp(0.0, 1.0) * usableHeight);
               }
 
@@ -2353,23 +2758,25 @@ class _InteractiveChartPainter extends CustomPainter {
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
-    final numSteps = yLabels.length - 1;
+    final numSteps = yLabels.length > 1 ? yLabels.length - 1 : 1;
     for (int i = 0; i <= numSteps; i++) {
       final y = topMargin + (i / numSteps) * usableHeight;
 
       // Draw Y label text
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: yLabels[i],
-          style: const TextStyle(
-            color: Color(0xFF64748B),
-            fontSize: 10.5,
-            fontWeight: FontWeight.w500,
+      if (i < yLabels.length) {
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: yLabels[i],
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      textPainter.paint(canvas, Offset(leftMargin - textPainter.width - 6, y - (textPainter.height / 2)));
+          textDirection: TextDirection.ltr,
+        )..layout();
+        textPainter.paint(canvas, Offset(leftMargin - textPainter.width - 6, y - (textPainter.height / 2)));
+      }
 
       // Draw dashed horizontal line
       _drawDashedLine(canvas, Offset(leftMargin, y), Offset(leftMargin + usableWidth, y), gridLinePaint);
@@ -2377,12 +2784,13 @@ class _InteractiveChartPainter extends CustomPainter {
 
     if (dataPoints.isEmpty) return;
 
+    final count = dataPoints.length;
+    final yRange = (yMax - yMin).abs() > 0.001 ? (yMax - yMin) : 1.0;
+
     // 3. Draw X-Axis Time Labels
-    final xStepCount = 4;
-    for (int i = 0; i <= xStepCount; i++) {
-      final dataIdx = ((i / xStepCount) * (dataPoints.length - 1)).round().clamp(0, dataPoints.length - 1);
-      final point = dataPoints[dataIdx];
-      final x = leftMargin + (dataIdx / (dataPoints.length - 1)) * usableWidth;
+    if (count == 1) {
+      final point = dataPoints.first;
+      final x = leftMargin + (usableWidth / 2);
 
       final xPainter = TextPainter(
         text: TextSpan(
@@ -2396,31 +2804,60 @@ class _InteractiveChartPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
       xPainter.paint(canvas, Offset(x - (xPainter.width / 2), size.height - 18));
+    } else {
+      final xStepCount = count < 4 ? (count - 1) : 4;
+      for (int i = 0; i <= xStepCount; i++) {
+        final dataIdx = ((i / xStepCount) * (count - 1)).round().clamp(0, count - 1);
+        final point = dataPoints[dataIdx];
+        final x = leftMargin + (dataIdx / (count - 1)) * usableWidth;
+
+        final xPainter = TextPainter(
+          text: TextSpan(
+            text: point.time,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        xPainter.paint(canvas, Offset(x - (xPainter.width / 2), size.height - 18));
+      }
     }
 
     // 4. Calculate line coordinates
     final points = <Offset>[];
-    for (int i = 0; i < dataPoints.length; i++) {
-      final x = leftMargin + (i / (dataPoints.length - 1)) * usableWidth;
-      final normY = (dataPoints[i].value - yMin) / (yMax - yMin);
+    for (int i = 0; i < count; i++) {
+      final x = count == 1
+          ? leftMargin + (usableWidth / 2)
+          : leftMargin + (i / (count - 1)) * usableWidth;
+      final normY = (dataPoints[i].value - yMin) / yRange;
       final y = topMargin + usableHeight - (normY.clamp(0.0, 1.0) * usableHeight);
       points.add(Offset(x, y));
     }
 
-    // 5. Draw smooth line
-    final linePath = Path();
-    linePath.moveTo(points.first.dx, points.first.dy);
-    for (int i = 1; i < points.length; i++) {
-      linePath.lineTo(points[i].dx, points[i].dy);
-    }
+    // 5. Draw smooth line or single point
+    if (points.length > 1) {
+      final linePath = Path();
+      linePath.moveTo(points.first.dx, points.first.dy);
+      for (int i = 1; i < points.length; i++) {
+        linePath.lineTo(points[i].dx, points[i].dy);
+      }
 
-    final linePaint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 2.6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(linePath, linePaint);
+      final linePaint = Paint()
+        ..color = lineColor
+        ..strokeWidth = 2.6
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(linePath, linePaint);
+    } else if (points.length == 1) {
+      final singleDotPaint = Paint()
+        ..color = lineColor
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(points.first, 5.0, singleDotPaint);
+    }
 
     // 6. Draw highlighted active point
     if (hoveredIndex != null && hoveredIndex! >= 0 && hoveredIndex! < points.length) {

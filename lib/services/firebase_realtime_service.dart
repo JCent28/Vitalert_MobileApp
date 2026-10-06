@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import '../models/alert_item.dart';
 import '../models/device_model.dart';
 import '../models/patient.dart';
@@ -263,12 +264,40 @@ class FirebaseRealtimeService {
               final sLowSpO2 = sSpO2Hist.isNotEmpty ? sSpO2Hist.reduce((a, b) => a < b ? a : b).toInt() : 0;
               final sAvgSpO2 = sSpO2Hist.isNotEmpty ? sSpO2Hist.reduce((a, b) => a + b) / sSpO2Hist.length : 0.0;
 
+              String sDate = '';
+              if (sMap['date'] != null &&
+                  sMap['date'].toString().trim().isNotEmpty &&
+                  !sMap['date'].toString().contains('August 21, 2026') &&
+                  !sMap['date'].toString().contains('Aug 21, 2026')) {
+                sDate = sMap['date'].toString().trim();
+              } else if (sMap['created_at'] != null && sMap['created_at'].toString().isNotEmpty) {
+                try {
+                  final dt = DateTime.parse(sMap['created_at'].toString()).toLocal();
+                  sDate = DateFormat('MMM d, yyyy').format(dt);
+                } catch (_) {}
+              }
+              if (sDate.isEmpty && sReadings.isNotEmpty) {
+                for (final r in sReadings) {
+                  if (r.timestamp.isNotEmpty) {
+                    try {
+                      final dt = DateTime.parse(r.timestamp).toLocal();
+                      sDate = DateFormat('MMM d, yyyy').format(dt);
+                      break;
+                    } catch (_) {}
+                  }
+                }
+              }
+              if (sDate.isEmpty) {
+                sDate = DateFormat('MMM d, yyyy').format(DateTime.now());
+              }
+
               sessionHistories.add(
                 PatientSessionHistory(
                   sessionNumber: sNum,
                   sessionTitle: 'Session $sNum',
                   startTime: sReadings.isNotEmpty ? sReadings.first.time : '--',
                   duration: sReadings.isNotEmpty ? sReadings.last.duration : '--',
+                  date: sDate,
                   highestHr: sHighHr,
                   lowestHr: sLowHr,
                   avgHr: sAvgHr,
@@ -365,6 +394,7 @@ class FirebaseRealtimeService {
               sessionTitle: 'Session $displaySessionNum',
               startTime: recentReadings.isNotEmpty ? recentReadings.first.time : '--',
               duration: recentReadings.isNotEmpty ? recentReadings.last.duration : '--',
+              date: DateFormat('MMM d, yyyy').format(DateTime.now()),
               highestHr: highestHr,
               lowestHr: lowestHr,
               avgHr: avgHr,
@@ -461,6 +491,22 @@ class FirebaseRealtimeService {
         final name = pData['name'] ?? 'Jane Doe';
         final initials = name.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join().toUpperCase();
 
+        String patientDate = '';
+        if (pData['date'] != null &&
+            pData['date'].toString().trim().isNotEmpty &&
+            !pData['date'].toString().contains('August 21, 2026') &&
+            !pData['date'].toString().contains('Aug 21, 2026')) {
+          patientDate = pData['date'].toString().trim();
+        } else if (pData['created_at'] != null && pData['created_at'].toString().isNotEmpty) {
+          try {
+            final dt = DateTime.parse(pData['created_at'].toString()).toLocal();
+            patientDate = DateFormat('EEEE, MMMM d, yyyy').format(dt);
+          } catch (_) {}
+        }
+        if (patientDate.isEmpty) {
+          patientDate = DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now());
+        }
+
         list.add(
           Patient(
             id: patientId,
@@ -471,7 +517,7 @@ class FirebaseRealtimeService {
             department: 'NephroAsia Dialysis Bay',
             session: 'Session $displaySessionNum',
             deviceId: deviceKey,
-            date: 'Friday, August 21, 2026',
+            date: patientDate,
             startTime: lastUpdatedTime,
             primaryNurse: 'Clark Kent',
             duration: durationStr,

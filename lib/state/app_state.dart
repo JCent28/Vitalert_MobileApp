@@ -19,7 +19,6 @@ class AppState extends ChangeNotifier {
   bool _isRestoringSession = true; // true while reading saved session from disk
   UserModel? _currentUser;
 
-  final String _shiftTime = 'Shift A · Friday, August 21, 2026';
   int _currentTabIndex = 0;
   String _selectedPatientId = '-P-Ufwr3l6JLCYU9PZEf';
 
@@ -31,7 +30,7 @@ class AppState extends ChangeNotifier {
   String get userRole => _currentUser?.role ?? '';
   bool get isHeadNurse => _currentUser?.isHeadNurse ?? false;
   bool get isStaffNurse => _currentUser?.isStaffNurse ?? false;
-  String get shiftTime => _shiftTime;
+  String get shiftTime => 'Shift A · ${DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now())}';
   int get currentTabIndex => _currentTabIndex;
   String get selectedPatientId => _selectedPatientId;
 
@@ -94,7 +93,7 @@ class AppState extends ChangeNotifier {
   }
 
   Patient _createDefaultPatient() {
-    return const Patient(
+    return Patient(
       id: '-P-Ufwr3l6JLCYU9PZEf',
       name: 'Jane Doe',
       mrn: '#990142',
@@ -103,7 +102,7 @@ class AppState extends ChangeNotifier {
       department: 'NephroAsia Dialysis Bay',
       session: 'Session 2',
       deviceId: 'device1',
-      date: 'Friday, August 21, 2026',
+      date: DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now()),
       startTime: '--',
       primaryNurse: 'Clark Kent',
       duration: '--',
@@ -117,10 +116,10 @@ class AppState extends ChangeNotifier {
       highestSpO2: 0,
       lowestSpO2: 0,
       avgSpO2: 0,
-      hrHistory: [],
-      spO2History: [],
-      recentReadings: [],
-      alertEvents: [],
+      hrHistory: const [],
+      spO2History: const [],
+      recentReadings: const [],
+      alertEvents: const [],
     );
   }
 

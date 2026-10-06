@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local build artifacts and server scripts
+*.apk
+serve_apk.js
