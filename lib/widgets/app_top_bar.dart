@@ -69,20 +69,13 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                       ),
                     ],
                     // Logo Icon
-                    Container(
-                      width: isVerySmall ? 28 : 34,
-                      height: isVerySmall ? 28 : 34,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.primary.withAlpha(40)),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.monitor_heart,
-                          size: isVerySmall ? 16 : 20,
-                          color: AppColors.primary,
-                        ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(isVerySmall ? 6 : 8),
+                      child: Image.asset(
+                        'assets/images/vitalert_icon.png',
+                        width: isVerySmall ? 28 : 34,
+                        height: isVerySmall ? 28 : 34,
+                        fit: BoxFit.contain,
                       ),
                     ),
                     SizedBox(width: isVerySmall ? 6 : 10),

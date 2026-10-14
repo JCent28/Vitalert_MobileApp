@@ -24,6 +24,10 @@ class UserModel {
 
   bool get canDeletePatients => isHeadNurse || isAdmin;
 
+  bool get canAcknowledgeAlerts => !isAdmin;
+
+  bool get isActive => status.toLowerCase() == 'active';
+
   factory UserModel.fromMap(String staffId, Map<String, dynamic> data) {
     return UserModel(
       staffId: staffId,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/alert_item.dart';
+import '../services/alert_notification_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -53,13 +54,63 @@ class _AlertsScreenState extends State<AlertsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Title
-          Text(
-            'Alerts',
-            style: AppTypography.headlineLg(color: AppColors.textMain).copyWith(
-              fontSize: isVerySmall ? 20 : (isSmall ? 22 : 24),
-              fontWeight: FontWeight.w800,
-            ),
+          // Section Title with Sound Test Action
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Alerts',
+                style: AppTypography.headlineLg(color: AppColors.textMain).copyWith(
+                  fontSize: isVerySmall ? 20 : (isSmall ? 22 : 24),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.volume_up_outlined, size: 22, color: AppColors.primary),
+                tooltip: 'Test Alert Sounds',
+                onSelected: (val) {
+                  if (val == 'critical') {
+                    AlertNotificationService.triggerTestAlertSound(isCritical: true);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Testing Critical Alarm audio (critical2.mp3)...'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  } else if (val == 'warning') {
+                    AlertNotificationService.triggerTestAlertSound(isCritical: false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Testing Warning Alert audio (warning1.mp3)...'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'critical',
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: AppColors.criticalRed, size: 18),
+                        SizedBox(width: 8),
+                        Text('Test Critical Sound'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'warning',
+                    child: Row(
+                      children: [
+                        Icon(Icons.notifications_active_outlined, color: AppColors.warningAmber, size: 18),
+                        SizedBox(width: 8),
+                        Text('Test Warning Sound'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 3),
           Row(
@@ -83,9 +134,13 @@ class _AlertsScreenState extends State<AlertsScreen> {
               const SizedBox(width: 6),
               const Text('•', style: TextStyle(color: AppColors.textMuted)),
               const SizedBox(width: 6),
-              Text(
-                widget.state.shiftTime.replaceFirst('Shift A · ', ''),
-                style: AppTypography.bodyMd(color: AppColors.textMuted, fontSize: isVerySmall ? 11 : 12),
+              Expanded(
+                child: Text(
+                  widget.state.shiftTime.replaceFirst('Shift A · ', ''),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodyMd(color: AppColors.textMuted, fontSize: isVerySmall ? 11 : 12),
+                ),
               ),
             ],
           ),
@@ -487,7 +542,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            initials.isNotEmpty ? initials : 'JD',
+                            initials.isNotEmpty ? initials : '?',
                             style: TextStyle(
                               color: isCritical ? const Color(0xFFDC2626) : const Color(0xFFD97706),
                               fontWeight: FontWeight.bold,
@@ -524,7 +579,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    chairNumber.isNotEmpty ? chairNumber : '1',
+                                    chairNumber.isNotEmpty && chairNumber != 'Unknown'
+                                        ? chairNumber
+                                        : '?',
                                     style: const TextStyle(
                                       color: Color(0xFF475569),
                                       fontWeight: FontWeight.w700,
@@ -788,18 +845,31 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        widget.state.acknowledgeAlert(alert.id);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final success = await widget.state.acknowledgeAlert(alert.id);
+                        if (!success) {
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(widget.state.lastAlertError ?? 'Admin accounts cannot acknowledge clinical alerts.'),
+                              backgroundColor: const Color(0xFFDC2626),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                          return;
+                        }
+                        messenger.showSnackBar(
                           SnackBar(
                             content: Text('Alert acknowledged by ${widget.state.nurseName}'),
                             backgroundColor: const Color(0xFF007D79),
                             duration: const Duration(seconds: 2),
                           ),
                         );
-                        setState(() {
-                          _showActive = false;
-                        });
+                        if (mounted) {
+                          setState(() {
+                            _showActive = false;
+                          });
+                        }
                       },
                       icon: const Icon(Icons.check, size: 14),
                       label: const FittedBox(

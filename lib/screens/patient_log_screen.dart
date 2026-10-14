@@ -36,17 +36,15 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
   ];
 
   String _formatSessionDate(PatientSessionHistory session, Patient patient) {
-    if (session.date.isNotEmpty) {
-      return session.date;
-    }
-    if (patient.date.isNotEmpty &&
-        !patient.date.contains('August 21, 2026') &&
-        !patient.date.contains('Aug 21, 2026')) {
+    final raw = session.date.isNotEmpty ? session.date : patient.date;
+    if (raw.isNotEmpty &&
+        !raw.contains('August 21, 2026') &&
+        !raw.contains('Aug 21, 2026')) {
       try {
-        final parsed = DateFormat('EEEE, MMMM d, yyyy').parse(patient.date);
+        final parsed = DateFormat('EEEE, MMMM d, yyyy').parse(raw);
         return DateFormat('MMM d, yyyy').format(parsed);
       } catch (_) {
-        return patient.date;
+        return raw;
       }
     }
     return DateFormat('MMM d, yyyy').format(DateTime.now());
@@ -420,14 +418,19 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                                 children: [
                                   const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF64748B)),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    selectedSessionHistory.startTime == '--' || (isSelectedSessionCurrent && patient.sessionStatus == 'Waiting')
-                                        ? 'Started: Session not started yet'
-                                        : 'Started: ${_formatSessionDate(selectedSessionHistory, patient)} ${selectedSessionHistory.startTime}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF334155),
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w500,
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 230),
+                                    child: Text(
+                                      selectedSessionHistory.startTime == '--' || (isSelectedSessionCurrent && patient.sessionStatus == 'Waiting')
+                                          ? 'Started: Session not started yet'
+                                          : 'Started: ${_formatSessionDate(selectedSessionHistory, patient)} ${selectedSessionHistory.startTime}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF334155),
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -694,14 +697,18 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'Vital Trends',
-                style: TextStyle(
-                  color: const Color(0xFF0F172A),
-                  fontSize: isVerySmall ? 19 : 22,
-                  fontWeight: FontWeight.w800,
+              Flexible(
+                child: Text(
+                  'Vital Trends',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: const Color(0xFF0F172A),
+                    fontSize: isVerySmall ? 19 : 22,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               // Dropdown Menu Button (Pill with green border)
               PopupMenuButton<String>(
                 tooltip: 'Select Time Range',

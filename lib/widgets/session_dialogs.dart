@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/device_model.dart';
 import '../models/patient.dart';
+import '../services/firebase_realtime_service.dart';
 import '../state/app_state.dart';
 
 /// Shows the "Start Next Dialysis Session" dialog for assigning a device
@@ -17,14 +18,35 @@ void showStartNextSessionDialog({
       : (currentNum > 0 ? currentNum : 1);
 
   final availableDevices = state.devices;
-  String selectedDevice = patient.deviceId != 'N/A'
+  final firstAvailable = availableDevices.where((d) => d.isAvailable).firstOrNull;
+  String selectedDevice = (patient.deviceId.isNotEmpty &&
+          patient.deviceId != 'N/A' &&
+          availableDevices.any((d) => d.deviceId == patient.deviceId && d.isAvailable))
       ? patient.deviceId
-      : (availableDevices.isNotEmpty ? availableDevices.first.deviceId : 'device1');
+      : (firstAvailable?.deviceId ?? (availableDevices.isNotEmpty ? availableDevices.first.deviceId : 'device1'));
+
+  final chairOccupied = state.patients.any((p) =>
+      p.id != patient.id &&
+      p.sessionStatus.toLowerCase() == 'ongoing' &&
+      FirebaseRealtimeService.normalizeChair(p.chair).isNotEmpty &&
+      FirebaseRealtimeService.normalizeChair(p.chair) == FirebaseRealtimeService.normalizeChair(patient.chair));
 
   showDialog(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (context, setDialogState) => Dialog(
+      builder: (context, setDialogState) {
+        final selectedDeviceModel = availableDevices.firstWhere(
+          (d) => d.deviceId == selectedDevice,
+          orElse: () => DeviceModel(deviceId: selectedDevice, status: 'AVAILABLE'),
+        );
+        final isDeviceInUse = selectedDevice != 'N/A' &&
+            (selectedDeviceModel.isInUse ||
+                state.patients.any((p) =>
+                    p.id != patient.id &&
+                    p.sessionStatus.toLowerCase() == 'ongoing' &&
+                    p.deviceId == selectedDevice));
+
+        return Dialog(
         backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -122,6 +144,34 @@ void showStartNextSessionDialog({
                 ),
                 const SizedBox(height: 18),
 
+                if (chairOccupied) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFDC2626)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Chair ${patient.chair} is currently occupied by an ongoing session.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFDC2626),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
                 // 3. ASSIGN MONITORING DEVICE Card
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -188,8 +238,8 @@ void showStartNextSessionDialog({
                                           fontSize: 10,
                                           fontWeight: FontWeight.w700,
                                           color: d.isAvailable
-                                              ? const Color(0xFF059669)
-                                              : (d.isInUse ? const Color(0xFF2563EB) : const Color(0xFFDC2626)),
+                                            ? const Color(0xFF059669)
+                                            : (d.isInUse ? const Color(0xFF2563EB) : const Color(0xFFDC2626)),
                                         ),
                                       ),
                                     ),
@@ -203,6 +253,33 @@ void showStartNextSessionDialog({
                           ),
                         ),
                       ),
+                      if (isDeviceInUse) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline, size: 14, color: Color(0xFFDC2626)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Device $selectedDevice is currently in use.',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFFDC2626),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       const Text(
                         'Select an active pulse oximeter device for this session.',
@@ -311,19 +388,50 @@ void showStartNextSessionDialog({
                       child: ElevatedButton.icon(
                         onPressed: () async {
                           final messenger = ScaffoldMessenger.of(context);
+                          if (chairOccupied) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Cannot start session: Chair ${patient.chair} is occupied by an ongoing session.'),
+                                backgroundColor: const Color(0xFFDC2626),
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                            return;
+                          }
+                          if (isDeviceInUse) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Cannot start session: Device $selectedDevice is currently in use.'),
+                                backgroundColor: const Color(0xFFDC2626),
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                            return;
+                          }
                           Navigator.of(ctx).pop();
-                          await state.startSession(
+                          final success = await state.startSession(
                             patientId: patient.id,
                             sessionNum: '$nextSessionNum',
                             deviceId: selectedDevice,
                           );
-                          messenger.showSnackBar(
-                            SnackBar(
-                              content: Text('Dialysis Session $nextSessionNum launched for ${patient.name}. Status: Waiting (READY)'),
-                              backgroundColor: const Color(0xFF059669),
-                              duration: const Duration(seconds: 3),
-                            ),
-                          );
+                          if (success) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Dialysis Session $nextSessionNum launched for ${patient.name}. Status: Ongoing'),
+                                backgroundColor: const Color(0xFF059669),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          } else {
+                            final errMsg = state.lastSessionError ?? 'Failed to start session. Chair or device is unavailable.';
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(errMsg),
+                                backgroundColor: const Color(0xFFDC2626),
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          }
                         },
                         icon: const Icon(Icons.play_circle_outline, size: 16),
                         label: const Text(
@@ -345,7 +453,8 @@ void showStartNextSessionDialog({
             ),
           ),
         ),
-      ),
+      );
+    },
     ),
   );
 }

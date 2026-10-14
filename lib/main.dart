@@ -10,7 +10,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AlertNotificationService.initialize();
   await ForegroundServiceManager.init();
-  await ForegroundServiceManager.startService();
+  // Note: ForegroundServiceManager.startService() is intentionally NOT called here.
+  // Background monitoring starts only when a nurse is signed in or has an active restored session.
   runApp(const VitalertApp());
 }
 
@@ -133,10 +134,9 @@ class _SplashScreen extends StatelessWidget {
           children: [
             // Logo mark
             Container(
-              width: 72,
-              height: 72,
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
-                color: const Color(0xFF14B8A6),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: const [
                   BoxShadow(
@@ -146,10 +146,14 @@ class _SplashScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.monitor_heart_rounded,
-                color: Colors.white,
-                size: 38,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Image.asset(
+                  'assets/images/vitalert_icon.png',
+                  width: 76,
+                  height: 76,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
             const SizedBox(height: 20),

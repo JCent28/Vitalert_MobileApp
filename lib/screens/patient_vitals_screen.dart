@@ -160,7 +160,21 @@ class _PatientVitalsScreenState extends State<PatientVitalsScreen> {
                       height: 40,
                       child: ElevatedButton.icon(
                         onPressed: () {
+                          if (widget.state.currentUser?.isAdmin == true || widget.state.userRole.toLowerCase() == 'admin') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Admin accounts cannot acknowledge clinical alerts.'),
+                                backgroundColor: Color(0xFFDC2626),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            return;
+                          }
                           setState(() => _isAcknowledged = true);
+                          final activeAlert = widget.state.alerts.where((a) => a.patientId == widget.patientId && !a.isAcknowledged).firstOrNull;
+                          if (activeAlert != null) {
+                            widget.state.acknowledgeAlert(activeAlert.id);
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Critical alert acknowledged'),

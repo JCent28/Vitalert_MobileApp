@@ -17,8 +17,8 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final _staffIdController = TextEditingController(text: 'HN-00312');
-  final _passwordController = TextEditingController(text: '123');
+  final _staffIdController = TextEditingController();
+  final _passwordController = TextEditingController();
   String _selectedRole = 'Head Nurse (Shift Lead)';
   bool _isLoading = false;
   String? _errorMessage;
@@ -49,7 +49,11 @@ class _SignInScreenState extends State<SignInScreen> {
       _errorMessage = null;
     });
 
-    final success = await widget.state.signInWithFirebase(staffId, password);
+    final success = await widget.state.signInWithFirebase(
+      staffId,
+      password,
+      selectedRole: _selectedRole,
+    );
 
     if (!mounted) return;
 
@@ -58,14 +62,16 @@ class _SignInScreenState extends State<SignInScreen> {
     if (success) {
       widget.onLoginSuccess();
     } else {
+      final errorMsg = widget.state.lastAuthError ??
+          'Invalid Staff ID or Password. Please verify your credentials.';
       setState(() {
-        _errorMessage = 'Invalid Staff ID or Password. Please verify your credentials.';
+        _errorMessage = errorMsg;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_errorMessage!),
+          content: Text(errorMsg),
           backgroundColor: AppColors.criticalRed,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -114,20 +120,13 @@ class _SignInScreenState extends State<SignInScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primaryLight,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: AppColors.primary.withAlpha(40)),
-                                    ),
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.monitor_heart,
-                                        size: 24,
-                                        color: AppColors.primary,
-                                      ),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Image.asset(
+                                      'assets/images/vitalert_icon.png',
+                                      width: 42,
+                                      height: 42,
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -281,6 +280,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               items: [
                                 'Head Nurse (Shift Lead)',
                                 'Staff Nurse',
+                                'Admin',
                               ].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                               onChanged: (val) {
                                 if (val != null) setState(() => _selectedRole = val);

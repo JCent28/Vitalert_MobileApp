@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -23,6 +24,16 @@ class FirebaseRealtimeService {
   Stream<List<DeviceModel>> get devicesStream => _devicesController.stream;
 
   bool _isSyncing = false;
+  String? lastSessionError;
+  String? lastAlertError;
+  String? lastAuthError;
+
+  /// Normalizes chair identifiers for consistent comparison (e.g. "Chair 1" -> "1").
+  static String normalizeChair(String chair) {
+    final clean = chair.trim().toLowerCase();
+    if (clean.isEmpty || clean == 'n/a' || clean == 'none' || clean == 'unknown') return '';
+    return clean.replaceAll(RegExp(r'^chair\s*', caseSensitive: false), '').trim();
+  }
 
   void startLiveSync({Duration interval = const Duration(seconds: 2)}) {
     _pollingTimer?.cancel();
@@ -53,39 +64,78 @@ class FirebaseRealtimeService {
 
       Map<String, dynamic> devicesMap = {};
       List<DeviceModel> devicesList = [];
-      if (devicesRes.statusCode == 200 && devicesRes.body != 'null') {
-        devicesMap = Map<String, dynamic>.from(jsonDecode(devicesRes.body));
-        devicesMap.forEach((k, v) {
-          if (v is Map) {
-            devicesList.add(DeviceModel.fromMap(k, Map<String, dynamic>.from(v)));
+      if (devicesRes.statusCode == 200 &&
+          devicesRes.body != 'null' &&
+          devicesRes.body.trim().isNotEmpty &&
+          devicesRes.body.trim() != 'null') {
+        try {
+          final decoded = jsonDecode(devicesRes.body);
+          if (decoded is Map) {
+            devicesMap = Map<String, dynamic>.from(decoded);
+            devicesMap.forEach((k, v) {
+              if (v is Map) {
+                devicesList.add(DeviceModel.fromMap(k, Map<String, dynamic>.from(v)));
+              }
+            });
+            devicesList.sort((a, b) => a.deviceId.compareTo(b.deviceId));
           }
-        });
-        devicesList.sort((a, b) => a.deviceId.compareTo(b.deviceId));
+        } catch (_) {}
         _devicesController.add(devicesList);
+      } else if (devicesRes.statusCode == 200) {
+        _devicesController.add([]);
       }
 
       Map<String, dynamic> alertsRaw = {};
       List<AlertItem> parsedAlerts = [];
-      if (alertsRes.statusCode == 200 && alertsRes.body != 'null') {
-        alertsRaw = Map<String, dynamic>.from(jsonDecode(alertsRes.body));
-        parsedAlerts = _parseAlerts(alertsRaw);
+      if (alertsRes.statusCode == 200 &&
+          alertsRes.body != 'null' &&
+          alertsRes.body.trim().isNotEmpty &&
+          alertsRes.body.trim() != 'null') {
+        try {
+          final decoded = jsonDecode(alertsRes.body);
+          if (decoded is Map) {
+            alertsRaw = Map<String, dynamic>.from(decoded);
+            parsedAlerts = _parseAlerts(alertsRaw);
+          }
+        } catch (_) {}
         _alertsController.add(parsedAlerts);
+      } else if (alertsRes.statusCode == 200) {
+        _alertsController.add([]);
       }
 
       Map<String, dynamic> historyRaw = {};
-      if (historyRes.statusCode == 200 && historyRes.body != 'null') {
-        historyRaw = Map<String, dynamic>.from(jsonDecode(historyRes.body));
+      if (historyRes.statusCode == 200 &&
+          historyRes.body != 'null' &&
+          historyRes.body.trim().isNotEmpty &&
+          historyRes.body.trim() != 'null') {
+        try {
+          final decoded = jsonDecode(historyRes.body);
+          if (decoded is Map) {
+            historyRaw = Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {}
       }
 
-      if (patientsRes.statusCode == 200 && patientsRes.body != 'null') {
-        final patientsRaw = Map<String, dynamic>.from(jsonDecode(patientsRes.body));
-        final parsedPatients = _parsePatients(
-          patientsRaw: patientsRaw,
-          devicesMap: devicesMap,
-          alertsList: parsedAlerts,
-          historyMap: historyRaw,
-        );
+      if (patientsRes.statusCode == 200 &&
+          patientsRes.body != 'null' &&
+          patientsRes.body.trim().isNotEmpty &&
+          patientsRes.body.trim() != 'null') {
+        List<Patient> parsedPatients = [];
+        try {
+          final decoded = jsonDecode(patientsRes.body);
+          if (decoded is Map) {
+            final patientsRaw = Map<String, dynamic>.from(decoded);
+            parsedPatients = _parsePatients(
+              patientsRaw: patientsRaw,
+              devicesMap: devicesMap,
+              alertsList: parsedAlerts,
+              historyMap: historyRaw,
+            );
+          }
+        } catch (_) {}
         _patientsController.add(parsedPatients);
+      } else if (patientsRes.statusCode == 200) {
+        _patientsController.add([]);
       }
     } catch (e) {
       debugPrint('Firebase RTDB Sync error: $e');
@@ -100,49 +150,31 @@ class FirebaseRealtimeService {
     alertsRaw.forEach((key, val) {
       if (val is Map) {
         final map = Map<String, dynamic>.from(val);
-        final sevStr = (map['severity'] ?? 'Warning').toString().toLowerCase();
-        final severity = sevStr == 'critical'
-            ? AlertSeverity.critical
-            : (sevStr == 'warning' ? AlertSeverity.warning : AlertSeverity.info);
-
-        final statusStr = (map['status'] ?? 'Active').toString();
-        final isAcknowledged = statusStr.toLowerCase() == 'acknowledged';
-
-        int? bpm;
-        int? spo2;
-        if (map['vitals'] is Map) {
-          final vitals = Map<String, dynamic>.from(map['vitals']);
-          bpm = (vitals['bpm'] as num?)?.toInt();
-          spo2 = (vitals['spo2'] as num?)?.toInt();
-        }
-
-        list.add(
-          AlertItem(
-            id: key,
-            patientId: map['patient_id'] ?? '',
-            patientName: map['patient_name'] ?? 'Jane Doe',
-            chairLocation: 'Chair ${map['chair'] ?? '2'}',
-            wardArea: map['station'] ?? 'Station 2',
-            severity: severity,
-            title: severity == AlertSeverity.critical
-                ? 'CRITICAL ALERT'
-                : 'WARNING ALERT',
-            message: map['message'] ?? '',
-            timeString: map['triggered_at'] ?? '00:00',
-            hrBpm: bpm,
-            spO2: spo2,
-            isAcknowledged: isAcknowledged,
-            acknowledgedBy: map['acknowledged_by'],
-            acknowledgedAt: map['acknowledged_at'],
-            note: map['note'],
-          ),
-        );
+        list.add(AlertItem.fromMap(key, map));
       }
     });
 
-    list.sort((a, b) => b.id.compareTo(a.id));
+    list.sort(AlertItem.compareNewestFirst);
     return list;
   }
+
+  @visibleForTesting
+  List<AlertItem> parseAlertsForTesting(Map<String, dynamic> alertsRaw) =>
+      _parseAlerts(alertsRaw);
+
+  @visibleForTesting
+  List<Patient> parsePatientsForTesting({
+    required Map<String, dynamic> patientsMap,
+    required Map<String, dynamic> devicesMap,
+    required List<AlertItem> alertsList,
+    required Map<String, dynamic> historyMap,
+  }) =>
+      _parsePatients(
+        patientsRaw: patientsMap,
+        devicesMap: devicesMap,
+        alertsList: alertsList,
+        historyMap: historyMap,
+      );
 
   List<Patient> _parsePatients({
     required Map<String, dynamic> patientsRaw,
@@ -215,6 +247,7 @@ class FirebaseRealtimeService {
               final sMap = Map<String, dynamic>.from(sVal);
               final cleanNum = sKey.replaceAll(RegExp(r'[^0-9]'), '');
               final sNum = cleanNum.isNotEmpty ? cleanNum : sKey;
+              final sMeta = sMap['meta'] is Map ? Map<String, dynamic>.from(sMap['meta'] as Map) : null;
               List<double> sHrHist = [];
               List<double> sSpO2Hist = [];
               List<PatientReading> sReadings = [];
@@ -264,6 +297,45 @@ class FirebaseRealtimeService {
               final sLowSpO2 = sSpO2Hist.isNotEmpty ? sSpO2Hist.reduce((a, b) => a < b ? a : b).toInt() : 0;
               final sAvgSpO2 = sSpO2Hist.isNotEmpty ? sSpO2Hist.reduce((a, b) => a + b) / sSpO2Hist.length : 0.0;
 
+              String sStartTime = '--';
+              if (sReadings.isNotEmpty) {
+                sStartTime = sReadings.first.time;
+              } else if (sMeta != null && sMeta['started_at'] != null) {
+                final raw = sMeta['started_at'].toString();
+                try {
+                  final dt = DateTime.parse(raw);
+                  sStartTime = DateFormat('HH:mm').format(dt.toLocal());
+                } catch (_) {
+                  if (raw.contains(' ') && raw.split(' ').last.length >= 5) {
+                    sStartTime = raw.split(' ').last.substring(0, 5);
+                  } else {
+                    sStartTime = raw;
+                  }
+                }
+              }
+
+              String sDuration = '--';
+              if (sReadings.isNotEmpty) {
+                sDuration = sReadings.last.duration;
+              } else if (sMeta != null) {
+                if (sMeta['active_seconds'] != null) {
+                  final sec = (sMeta['active_seconds'] as num).toInt();
+                  final min = sec ~/ 60;
+                  sDuration = min >= 60 ? '${min ~/ 60}h ${min % 60}m' : '${min}m';
+                } else if (sMeta['started_at'] != null) {
+                  try {
+                    final dt = DateTime.parse(sMeta['started_at'].toString());
+                    final diff = DateTime.now().difference(dt.toLocal());
+                    final min = diff.inMinutes;
+                    if (min >= 0) {
+                      sDuration = min >= 60 ? '${min ~/ 60}h ${min % 60}m' : '${min}m';
+                    }
+                  } catch (_) {
+                    sDuration = '0m';
+                  }
+                }
+              }
+
               String sDate = '';
               if (sMap['date'] != null &&
                   sMap['date'].toString().trim().isNotEmpty &&
@@ -273,6 +345,11 @@ class FirebaseRealtimeService {
               } else if (sMap['created_at'] != null && sMap['created_at'].toString().isNotEmpty) {
                 try {
                   final dt = DateTime.parse(sMap['created_at'].toString()).toLocal();
+                  sDate = DateFormat('MMM d, yyyy').format(dt);
+                } catch (_) {}
+              } else if (sMeta != null && sMeta['started_at'] != null && sMeta['started_at'].toString().isNotEmpty) {
+                try {
+                  final dt = DateTime.parse(sMeta['started_at'].toString()).toLocal();
                   sDate = DateFormat('MMM d, yyyy').format(dt);
                 } catch (_) {}
               }
@@ -295,8 +372,8 @@ class FirebaseRealtimeService {
                 PatientSessionHistory(
                   sessionNumber: sNum,
                   sessionTitle: 'Session $sNum',
-                  startTime: sReadings.isNotEmpty ? sReadings.first.time : '--',
-                  duration: sReadings.isNotEmpty ? sReadings.last.duration : '--',
+                  startTime: sStartTime,
+                  duration: sDuration,
                   date: sDate,
                   highestHr: sHighHr,
                   lowestHr: sLowHr,
@@ -387,13 +464,36 @@ class FirebaseRealtimeService {
         final lowestSpO2 = spO2History.isNotEmpty ? spO2History.reduce((a, b) => a < b ? a : b).toInt() : liveSpO2;
         final avgSpO2 = spO2History.isNotEmpty ? spO2History.reduce((a, b) => a + b) / spO2History.length : liveSpO2.toDouble();
 
+        final rawStatus = (pData['status'] ?? 'Waiting').toString();
+        String sessionStatus = 'Waiting';
+        if (rawStatus.toLowerCase() == 'ongoing') {
+          sessionStatus = 'Ongoing';
+        } else if (rawStatus.toLowerCase() == 'completed') {
+          sessionStatus = 'Completed';
+        } else if (rawStatus.toLowerCase() == 'inactive') {
+          sessionStatus = 'Inactive';
+        } else {
+          sessionStatus = 'Waiting';
+        }
+
         if (!sessionHistories.any((s) => s.sessionNumber == displaySessionNum)) {
+          final fallbackStart = recentReadings.isNotEmpty
+              ? recentReadings.first.time
+              : (pData['start_time'] != null && pData['start_time'].toString().isNotEmpty && pData['start_time'] != '--'
+                  ? pData['start_time'].toString()
+                  : '--');
+          final fallbackDuration = recentReadings.isNotEmpty
+              ? recentReadings.last.duration
+              : (pData['duration'] != null && pData['duration'].toString().isNotEmpty
+                  ? pData['duration'].toString()
+                  : (sessionStatus == 'Ongoing' ? '0m' : '--'));
+
           sessionHistories.add(
             PatientSessionHistory(
               sessionNumber: displaySessionNum,
               sessionTitle: 'Session $displaySessionNum',
-              startTime: recentReadings.isNotEmpty ? recentReadings.first.time : '--',
-              duration: recentReadings.isNotEmpty ? recentReadings.last.duration : '--',
+              startTime: fallbackStart,
+              duration: fallbackDuration,
               date: DateFormat('MMM d, yyyy').format(DateTime.now()),
               highestHr: highestHr,
               lowestHr: lowestHr,
@@ -428,18 +528,6 @@ class FirebaseRealtimeService {
                   : null,
             ),
           );
-        }
-
-        final rawStatus = (pData['status'] ?? 'Waiting').toString();
-        String sessionStatus = 'Waiting';
-        if (rawStatus.toLowerCase() == 'ongoing') {
-          sessionStatus = 'Ongoing';
-        } else if (rawStatus.toLowerCase() == 'completed') {
-          sessionStatus = 'Completed';
-        } else if (rawStatus.toLowerCase() == 'inactive') {
-          sessionStatus = 'Inactive';
-        } else {
-          sessionStatus = 'Waiting';
         }
 
         // Auto-promote to Ongoing when the device starts sending live readings
@@ -483,12 +571,24 @@ class FirebaseRealtimeService {
             }
           }
         }
+        if (lastUpdatedTime == '--' && sessionStatus == 'Ongoing' && pData['start_time'] != null && pData['start_time'].toString().isNotEmpty && pData['start_time'] != '--') {
+          lastUpdatedTime = pData['start_time'].toString();
+        }
 
-        final durationStr = recentReadings.isNotEmpty
+        String durationStr = recentReadings.isNotEmpty
             ? recentReadings.first.duration
             : (pData['duration'] != null && pData['duration'].toString().isNotEmpty ? pData['duration'].toString() : '--');
+        if (durationStr == '--' && sessionStatus == 'Ongoing') {
+          final currSh = sessionHistories.where((s) => s.sessionNumber == displaySessionNum).firstOrNull;
+          if (currSh != null && currSh.duration != '--') {
+            durationStr = currSh.duration;
+          } else {
+            durationStr = '0m';
+          }
+        }
 
-        final name = pData['name'] ?? 'Jane Doe';
+        final rawName = pData['name']?.toString().trim();
+        final name = (rawName != null && rawName.isNotEmpty) ? rawName : 'Unknown Patient';
         final initials = name.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join().toUpperCase();
 
         String patientDate = '';
@@ -507,19 +607,28 @@ class FirebaseRealtimeService {
           patientDate = DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now());
         }
 
+        final nurseName = (pData['primary_nurse'] ??
+                pData['nurse'] ??
+                pData['attending_nurse'] ??
+                pData['nurse_name'] ??
+                pData['staff_name'] ??
+                '--')
+            .toString()
+            .trim();
+
         list.add(
           Patient(
             id: patientId,
             name: name,
             mrn: '#${patientId.replaceAll(RegExp(r'[^0-9]'), '').padLeft(6, '0').substring(0, 6)}',
-            initials: initials.isNotEmpty ? initials : 'JD',
+            initials: initials.isNotEmpty ? initials : '--',
             chair: pData['chair']?.toString() ?? '1',
             department: 'NephroAsia Dialysis Bay',
             session: 'Session $displaySessionNum',
             deviceId: deviceKey,
             date: patientDate,
             startTime: lastUpdatedTime,
-            primaryNurse: 'Clark Kent',
+            primaryNurse: nurseName.isNotEmpty ? nurseName : '--',
             duration: durationStr,
             sessionStatus: sessionStatus,
             status: overallStatus,
@@ -548,27 +657,114 @@ class FirebaseRealtimeService {
   Future<UserModel?> authenticateStaff({
     required String staffId,
     required String password,
+    String? selectedRole,
+    http.Client? client,
   }) async {
+    lastAuthError = null;
     try {
-      final res = await http.get(Uri.parse('$databaseUrl/users/$staffId.json'));
-      if (res.statusCode == 200 && res.body != 'null') {
-        final data = jsonDecode(res.body);
-        if (data is Map) {
-          final storedPass = data['password']?.toString() ?? '';
-          if (storedPass == password) {
-            return UserModel(
-              staffId: data['staff_id'] ?? staffId,
-              name: data['name'] ?? 'Staff Member',
-              role: data['role'] ?? 'Staff Nurse',
-            );
+      final getFn = client != null ? client.get : http.get;
+      final cleanStaffId = staffId.trim();
+      final res = await getFn(Uri.parse('$databaseUrl/users/$cleanStaffId.json'));
+
+      if (res.statusCode != 200 || res.body == 'null' || res.body.trim().isEmpty) {
+        lastAuthError = 'Staff ID not found. Please verify your credentials.';
+        debugPrint('authenticateStaff failed: Staff ID $cleanStaffId not found');
+        return null;
+      }
+
+      final data = jsonDecode(res.body);
+      if (data is! Map) {
+        lastAuthError = 'Invalid user record format from database.';
+        debugPrint('authenticateStaff failed: Invalid record format');
+        return null;
+      }
+
+      // 1. Account status validation (Active vs Inactive/Deactivated)
+      final status = (data['status'] ?? 'Active').toString().trim();
+      if (status.toLowerCase() != 'active') {
+        lastAuthError = 'Account is deactivated. Please contact your administrator.';
+        debugPrint('authenticateStaff rejected: Account $cleanStaffId is deactivated (status: $status)');
+        return null;
+      }
+
+      // 2. Password verification with BCrypt
+      final storedPass = (data['password'] ?? '').toString();
+      bool passwordValid = false;
+
+      if (storedPass.startsWith(r'$2')) {
+        try {
+          passwordValid = BCrypt.checkpw(password, storedPass);
+        } catch (_) {
+          try {
+            // Attempt normalizing $2y$ prefix to $2a$ if needed
+            final normalized = storedPass.replaceFirst(r'$2y$', r'$2a$');
+            passwordValid = BCrypt.checkpw(password, normalized);
+          } catch (_) {
+            passwordValid = false;
           }
         }
+      } else {
+        // Fallback for legacy unhashed dev/test accounts
+        passwordValid = storedPass.isNotEmpty && storedPass == password;
       }
-      return null;
+
+      if (!passwordValid) {
+        lastAuthError = 'Invalid password. Please verify your credentials.';
+        debugPrint('authenticateStaff rejected: Invalid password for $cleanStaffId');
+        return null;
+      }
+
+      // 3. Role validation and clinical authorization check
+      final accountRole = (data['role'] ?? 'Staff Nurse').toString().trim();
+      if (!_isRoleAuthorized(accountRole)) {
+        lastAuthError = 'Unauthorized role: $accountRole is not permitted to access the nurse station.';
+        debugPrint('authenticateStaff rejected: Role $accountRole is unauthorized');
+        return null;
+      }
+
+      if (selectedRole != null && selectedRole.trim().isNotEmpty) {
+        if (!_isRoleCompatible(selectedRole.trim(), accountRole)) {
+          lastAuthError = 'Role mismatch: Account is registered as $accountRole, but $selectedRole was selected.';
+          debugPrint('authenticateStaff rejected: Selected role ($selectedRole) does not match account role ($accountRole)');
+          return null;
+        }
+      }
+
+      return UserModel(
+        staffId: data['staff_id']?.toString() ?? cleanStaffId,
+        name: data['name']?.toString() ?? 'Staff Member',
+        role: accountRole,
+        status: status,
+        createdAt: data['created_at']?.toString() ?? '',
+      );
     } catch (e) {
+      lastAuthError = 'Authentication service error: $e';
       debugPrint('RTDB Auth error: $e');
       return null;
     }
+  }
+
+  /// Determines whether a database role is authorized for clinical application access.
+  bool _isRoleAuthorized(String role) {
+    final r = role.toLowerCase();
+    return r.contains('head nurse') ||
+        r.contains('staff nurse') ||
+        r == 'admin';
+  }
+
+  /// Verifies that the user-selected login role is compatible with their actual account role.
+  bool _isRoleCompatible(String selectedRole, String accountRole) {
+    final s = selectedRole.toLowerCase();
+    final a = accountRole.toLowerCase();
+
+    // Admin has super-access across nurse station roles
+    if (a == 'admin') return true;
+
+    if (s.contains('head nurse') && a.contains('head nurse')) return true;
+    if (s.contains('staff nurse') && a.contains('staff nurse')) return true;
+    if (s == a) return true;
+
+    return false;
   }
 
   // 2. Add New Patient to Firebase RTDB
@@ -665,39 +861,155 @@ class FirebaseRealtimeService {
     required String patientId,
     required String sessionNum,
     required String deviceId,
+    http.Client? client,
   }) async {
     try {
+      lastSessionError = null;
+
+      final getFn = client != null ? client.get : http.get;
+      final putFn = client != null ? client.put : http.put;
+      final patchFn = client != null ? client.patch : http.patch;
+
+      // 1. Fetch current patients data to validate chair and device availability
+      final patientsRes = await getFn(
+        Uri.parse('$databaseUrl/patients.json'),
+      ).timeout(const Duration(seconds: 5));
+      if (patientsRes.statusCode != 200 || patientsRes.body == 'null' || patientsRes.body.trim().isEmpty) {
+        lastSessionError = 'Failed to load clinic patients to verify availability.';
+        debugPrint('startSession error: $lastSessionError');
+        return false;
+      }
+
+      final decodedPatients = jsonDecode(patientsRes.body);
+      if (decodedPatients is! Map) {
+        lastSessionError = 'Invalid patients database format.';
+        debugPrint('startSession error: $lastSessionError');
+        return false;
+      }
+      final patientsMap = Map<String, dynamic>.from(decodedPatients);
+
+      final patientData = patientsMap[patientId];
+      if (patientData is! Map) {
+        lastSessionError = 'Patient $patientId not found in database.';
+        debugPrint('startSession error: $lastSessionError');
+        return false;
+      }
+      final pMap = Map<String, dynamic>.from(patientData);
+      final patientChair = (pMap['chair'] ?? '').toString();
+      final targetNormalizedChair = normalizeChair(patientChair);
+
+      // 2. Validate Chair Availability
+      if (targetNormalizedChair.isNotEmpty) {
+        for (final entry in patientsMap.entries) {
+          if (entry.key == patientId) continue;
+          if (entry.value is Map) {
+            final other = Map<String, dynamic>.from(entry.value as Map);
+            final otherStatus = (other['status'] ?? '').toString().toLowerCase();
+            final otherChair = (other['chair'] ?? '').toString();
+            if (otherStatus == 'ongoing' && normalizeChair(otherChair) == targetNormalizedChair) {
+              final otherName = other['name'] ?? 'Another patient';
+              lastSessionError = 'Chair $patientChair is occupied by $otherName (Ongoing session).';
+              debugPrint('startSession rejected: $lastSessionError');
+              return false;
+            }
+          }
+        }
+      }
+
+      // 3. Validate Device Availability
+      final isPhysical = deviceId.isNotEmpty && deviceId != 'N/A';
+      if (isPhysical) {
+        // Check if device is marked IN_USE in /devices node
+        final devRes = await getFn(
+          Uri.parse('$databaseUrl/devices/$deviceId.json'),
+        ).timeout(const Duration(seconds: 5));
+        if (devRes.statusCode == 200 && devRes.body != 'null' && devRes.body.trim().isNotEmpty) {
+          final devDecoded = jsonDecode(devRes.body);
+          if (devDecoded is Map) {
+            final devMap = Map<String, dynamic>.from(devDecoded);
+            final devStatus = (devMap['status'] ?? '').toString().toUpperCase();
+            if (devStatus == 'IN_USE') {
+              lastSessionError = 'Device $deviceId is currently in use.';
+              debugPrint('startSession rejected: $lastSessionError');
+              return false;
+            }
+          }
+        }
+
+        // Also verify no other ongoing patient is currently assigned this device
+        for (final entry in patientsMap.entries) {
+          if (entry.key == patientId) continue;
+          if (entry.value is Map) {
+            final other = Map<String, dynamic>.from(entry.value as Map);
+            final otherStatus = (other['status'] ?? '').toString().toLowerCase();
+            final otherDevice = (other['device'] ?? '').toString();
+            if (otherStatus == 'ongoing' && otherDevice == deviceId) {
+              final otherName = other['name'] ?? 'Another patient';
+              lastSessionError = 'Device $deviceId is already assigned to $otherName (Ongoing session).';
+              debugPrint('startSession rejected: $lastSessionError');
+              return false;
+            }
+          }
+        }
+      }
+
+      // 4. Prepare session identifiers and timestamps
       final now = DateTime.now();
       final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      final fullTimestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
       final formattedSession = sessionNum.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty
           ? sessionNum.replaceAll(RegExp(r'[^0-9]'), '')
           : '1';
+      final sessionKey = 'session_$formattedSession';
 
-      final res = await http.patch(
+      // 5. Write history/.../meta node with all required parameters
+      final metaData = <String, dynamic>{
+        'started_at': fullTimestamp,
+        'interval_minutes': 1,
+        'stream_interval': 1,
+        'source_type': isPhysical ? 'actual' : 'simulation',
+        'mode': 'random',
+        'active_seconds': 0,
+      };
+
+      await putFn(
+        Uri.parse('$databaseUrl/history/$patientId/$sessionKey/meta.json'),
+        body: jsonEncode(metaData),
+      );
+
+      // 6. Update patient status to 'Ongoing' (matching web app)
+      final patientPatch = <String, dynamic>{
+        'session': formattedSession,
+        'device': isPhysical ? deviceId : 'N/A',
+        'status': 'Ongoing',
+        'last_updated': fullTimestamp,
+        'start_time': timeStr,
+        'snapshot_interval': 1,
+        'stream_interval': 1,
+      };
+
+      final res = await patchFn(
         Uri.parse('$databaseUrl/patients/$patientId.json'),
-        body: jsonEncode({
-          'session': formattedSession,
-          'device': deviceId.isEmpty ? 'N/A' : deviceId,
-          'status': 'Waiting',
-          'last_updated': timeStr,
-        }),
+        body: jsonEncode(patientPatch),
       );
 
       if (res.statusCode == 200) {
-        if (deviceId.isNotEmpty && deviceId != 'N/A') {
-          await http.patch(
+        if (isPhysical) {
+          await patchFn(
             Uri.parse('$databaseUrl/devices/$deviceId.json'),
             body: jsonEncode({
               'status': 'IN_USE',
-              'last_updated': timeStr,
+              'last_updated': fullTimestamp,
             }),
           );
         }
         syncData();
         return true;
       }
+      lastSessionError = 'Failed to update patient node in database (status ${res.statusCode}).';
       return false;
     } catch (e) {
+      lastSessionError = 'startSession error: $e';
       debugPrint('startSession error: $e');
       return false;
     }
@@ -707,49 +1019,94 @@ class FirebaseRealtimeService {
   Future<bool> endSession({
     required String patientId,
     required String deviceId,
+    http.Client? client,
   }) async {
     try {
-      // 1. Snapshot the final telemetry from the device before disconnecting
+      final getFn = client != null ? client.get : http.get;
+      final patchFn = client != null ? client.patch : http.patch;
+
+      String targetDeviceId = deviceId;
       int finalBpm = 0;
       int finalSpo2 = 0;
-      String finalLastUpdated = '';
-      if (deviceId.isNotEmpty && deviceId != 'N/A') {
+
+      // 1. Fetch current patient data to determine device and vitals
+      try {
+        final pRes = await getFn(Uri.parse('$databaseUrl/patients/$patientId.json'))
+            .timeout(const Duration(seconds: 5));
+        if (pRes.statusCode == 200 && pRes.body != 'null' && pRes.body.trim().isNotEmpty) {
+          final decoded = jsonDecode(pRes.body);
+          if (decoded is Map) {
+            final pMap = Map<String, dynamic>.from(decoded);
+            finalBpm = (pMap['bpm'] as num?)?.toInt() ?? 0;
+            finalSpo2 = (pMap['spo2'] as num?)?.toInt() ?? 0;
+            if (targetDeviceId.isEmpty || targetDeviceId == 'N/A') {
+              final storedDev = pMap['device']?.toString() ?? '';
+              if (storedDev.isNotEmpty && storedDev != 'N/A') {
+                targetDeviceId = storedDev;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+
+      // 2. Snapshot the final telemetry from the device before disconnecting
+      if (targetDeviceId.isNotEmpty && targetDeviceId != 'N/A') {
         try {
-          final devRes = await http
-              .get(Uri.parse('$databaseUrl/devices/$deviceId.json'))
+          final devRes = await getFn(Uri.parse('$databaseUrl/devices/$targetDeviceId.json'))
               .timeout(const Duration(seconds: 3));
-          if (devRes.statusCode == 200 && devRes.body != 'null') {
+          if (devRes.statusCode == 200 && devRes.body != 'null' && devRes.body.trim().isNotEmpty) {
             final devMap = Map<String, dynamic>.from(jsonDecode(devRes.body));
-            finalBpm = (devMap['bpm'] as num?)?.toInt() ?? 0;
-            finalSpo2 = (devMap['spo2'] as num?)?.toInt() ?? 0;
-            finalLastUpdated = devMap['last_updated']?.toString() ?? '';
+            final devBpm = (devMap['bpm'] as num?)?.toInt() ?? 0;
+            final devSpo2 = (devMap['spo2'] as num?)?.toInt() ?? 0;
+            if (devBpm > 0) finalBpm = devBpm;
+            if (devSpo2 > 0) finalSpo2 = devSpo2;
           }
         } catch (_) {}
       }
 
       final now = DateTime.now();
-      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      if (finalLastUpdated.isEmpty) finalLastUpdated = timeStr;
+      final fullTimestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
 
+      // 3. Evaluate clinical status for final_vitals
+      final severity = (finalBpm > 0 && finalSpo2 > 0)
+          ? VitalThresholds.evaluateVitals(finalBpm, finalSpo2)
+          : AlertSeverity.info;
+      final statusStr = severity == AlertSeverity.critical
+          ? 'Critical'
+          : (severity == AlertSeverity.warning ? 'Warning' : 'Normal');
+
+      final finalVitals = <String, dynamic>{
+        'bpm': finalBpm,
+        'spo2': finalSpo2,
+        'status': statusStr,
+        'last_updated': fullTimestamp,
+      };
+
+      // 4. Update patient: status = Completed, device = N/A, write final_vitals
       final patchData = <String, dynamic>{
         'status': 'Completed',
-        'last_updated': finalLastUpdated,
+        'device': 'N/A',
+        'final_vitals': finalVitals,
+        'last_updated': fullTimestamp,
       };
       if (finalBpm > 0) patchData['bpm'] = finalBpm;
       if (finalSpo2 > 0) patchData['spo2'] = finalSpo2;
 
-      final res = await http.patch(
+      final res = await patchFn(
         Uri.parse('$databaseUrl/patients/$patientId.json'),
         body: jsonEncode(patchData),
       );
 
+      // 5. Update device: status = AVAILABLE, zero out BPM and SpO2 values
       if (res.statusCode == 200) {
-        if (deviceId.isNotEmpty && deviceId != 'N/A') {
-          await http.patch(
-            Uri.parse('$databaseUrl/devices/$deviceId.json'),
+        if (targetDeviceId.isNotEmpty && targetDeviceId != 'N/A') {
+          await patchFn(
+            Uri.parse('$databaseUrl/devices/$targetDeviceId.json'),
             body: jsonEncode({
               'status': 'AVAILABLE',
-              'last_updated': finalLastUpdated,
+              'bpm': 0,
+              'spo2': 0,
+              'last_updated': fullTimestamp,
             }),
           );
         }
@@ -764,17 +1121,23 @@ class FirebaseRealtimeService {
   }
 
   // 6. Delete / Deactivate Patient from Firebase RTDB
-  Future<bool> deletePatient(String patientId, {String? deviceId}) async {
+  Future<bool> deletePatient(String patientId, {String? deviceId, http.Client? client}) async {
     try {
-      final res = await http.delete(
+      final deleteFn = client != null ? client.delete : http.delete;
+      final patchFn = client != null ? client.patch : http.patch;
+      final res = await deleteFn(
         Uri.parse('$databaseUrl/patients/$patientId.json'),
       );
 
       if (res.statusCode == 200) {
-        if (deviceId != null && deviceId.isNotEmpty) {
-          await http.patch(
+        if (deviceId != null && deviceId.isNotEmpty && deviceId != 'N/A') {
+          await patchFn(
             Uri.parse('$databaseUrl/devices/$deviceId.json'),
-            body: jsonEncode({'status': 'AVAILABLE'}),
+            body: jsonEncode({
+              'status': 'AVAILABLE',
+              'bpm': 0,
+              'spo2': 0,
+            }),
           );
         }
         syncData();
@@ -791,28 +1154,143 @@ class FirebaseRealtimeService {
   Future<bool> acknowledgeAlert({
     required String alertId,
     required String nurseName,
-    required String time,
+    String? nurseId,
+    String? userRole,
+    String? patientId,
+    String? session,
+    String? time,
     String? note,
+    http.Client? client,
   }) async {
+    lastAlertError = null;
+
+    // Role check: Admin accounts are strictly blocked from acknowledging alerts
+    if (userRole != null && userRole.trim().toLowerCase() == 'admin') {
+      lastAlertError = 'Admin accounts cannot acknowledge clinical alerts.';
+      debugPrint('acknowledgeAlert rejected: $lastAlertError');
+      return false;
+    }
+
     try {
-      final patchBody = jsonEncode({
+      final getFn = client != null ? client.get : http.get;
+      final patchFn = client != null ? client.patch : http.patch;
+
+      final now = DateTime.now();
+      final timeStr = (time != null && time.isNotEmpty)
+          ? time
+          : DateFormat('HH:mm').format(now);
+      final staffIdToWrite = (nurseId != null && nurseId.trim().isNotEmpty)
+          ? nurseId.trim()
+          : 'EMP-001';
+
+      String targetPatientId = patientId ?? '';
+      String targetSession = session ?? '';
+
+      // 1. Fetch alert details if patientId or session is missing
+      if (targetPatientId.isEmpty || targetSession.isEmpty) {
+        try {
+          final aRes = await getFn(Uri.parse('$databaseUrl/alerts/$alertId.json'))
+              .timeout(const Duration(seconds: 4));
+          if (aRes.statusCode == 200 && aRes.body != 'null' && aRes.body.trim().isNotEmpty) {
+            final aData = jsonDecode(aRes.body);
+            if (aData is Map) {
+              if (targetPatientId.isEmpty) {
+                targetPatientId = aData['patient_id']?.toString() ?? '';
+              }
+              if (targetSession.isEmpty) {
+                targetSession = aData['session']?.toString() ??
+                    aData['session_num']?.toString() ??
+                    aData['session_id']?.toString() ??
+                    '';
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 2. Fetch patient details to discover session if still missing
+      if (targetSession.isEmpty && targetPatientId.isNotEmpty) {
+        try {
+          final pRes = await getFn(Uri.parse('$databaseUrl/patients/$targetPatientId.json'))
+              .timeout(const Duration(seconds: 4));
+          if (pRes.statusCode == 200 && pRes.body != 'null' && pRes.body.trim().isNotEmpty) {
+            final pData = jsonDecode(pRes.body);
+            if (pData is Map) {
+              targetSession = pData['session']?.toString() ?? '';
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 3. Resolve sessionKey and locate the alert in history if possible
+      String targetSessionKey = '';
+      if (targetSession.isNotEmpty) {
+        final clean = targetSession.replaceAll(RegExp(r'[^0-9]'), '');
+        targetSessionKey = clean.isNotEmpty ? 'session_$clean' : targetSession;
+        if (!targetSessionKey.startsWith('session_')) {
+          targetSessionKey = 'session_$targetSessionKey';
+        }
+      }
+
+      if (targetPatientId.isNotEmpty) {
+        try {
+          final hRes = await getFn(Uri.parse('$databaseUrl/history/$targetPatientId.json'))
+              .timeout(const Duration(seconds: 4));
+          if (hRes.statusCode == 200 && hRes.body != 'null' && hRes.body.trim().isNotEmpty) {
+            final hData = jsonDecode(hRes.body);
+            if (hData is Map) {
+              for (final entry in hData.entries) {
+                final sVal = entry.value;
+                if (sVal is Map && sVal['alerts'] is Map) {
+                  final alertsMap = sVal['alerts'] as Map;
+                  if (alertsMap.containsKey(alertId)) {
+                    targetSessionKey = entry.key;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (targetSessionKey.isEmpty) {
+        targetSessionKey = 'session_1';
+      }
+
+      // 4. Construct acknowledgment payload with status, staff name, staff id, and time
+      final patchData = <String, dynamic>{
         'status': 'Acknowledged',
         'acknowledged_by': nurseName,
-        'acknowledged_at': time,
+        'acknowledged_by_id': staffIdToWrite,
+        'acknowledged_at': timeStr,
         if (note != null && note.isNotEmpty) 'note': note,
-      });
+      };
 
-      final res = await http.patch(
+      final patchBody = jsonEncode(patchData);
+
+      // 5. Patch top-level alert
+      final res = await patchFn(
         Uri.parse('$databaseUrl/alerts/$alertId.json'),
         body: patchBody,
       );
+
+      // 6. Patch history/{patient}/{session}/alerts/{alertId}
+      if (targetPatientId.isNotEmpty) {
+        await patchFn(
+          Uri.parse('$databaseUrl/history/$targetPatientId/$targetSessionKey/alerts/$alertId.json'),
+          body: patchBody,
+        );
+      }
 
       if (res.statusCode == 200) {
         syncData();
         return true;
       }
+      lastAlertError = 'Failed to acknowledge alert in database (status ${res.statusCode}).';
       return false;
     } catch (e) {
+      lastAlertError = 'Acknowledge alert error: $e';
       debugPrint('Acknowledge alert error: $e');
       return false;
     }

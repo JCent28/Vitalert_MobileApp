@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../models/alert_item.dart';
 import '../models/device_model.dart';
@@ -7,6 +8,7 @@ import '../models/patient.dart';
 import '../models/user_model.dart';
 import '../services/alert_notification_service.dart';
 import '../services/firebase_realtime_service.dart';
+import '../services/foreground_service_manager.dart';
 import '../services/session_storage_service.dart';
 
 class AppState extends ChangeNotifier {
@@ -20,7 +22,7 @@ class AppState extends ChangeNotifier {
   UserModel? _currentUser;
 
   int _currentTabIndex = 0;
-  String _selectedPatientId = '-P-Ufwr3l6JLCYU9PZEf';
+  String _selectedPatientId = '';
 
   bool get isLoggedIn => _isLoggedIn;
   bool get isRestoringSession => _isRestoringSession;
@@ -33,6 +35,11 @@ class AppState extends ChangeNotifier {
   String get shiftTime => 'Shift A · ${DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now())}';
   int get currentTabIndex => _currentTabIndex;
   String get selectedPatientId => _selectedPatientId;
+  String? get lastSessionError => _rtdbService.lastSessionError;
+  String? _lastAlertError;
+  String? get lastAlertError => _lastAlertError ?? _rtdbService.lastAlertError;
+  String? _lastAuthError;
+  String? get lastAuthError => _lastAuthError ?? _rtdbService.lastAuthError;
 
   List<Patient> _patients = [];
   List<AlertItem> _alerts = [];
@@ -50,12 +57,27 @@ class AppState extends ChangeNotifier {
   Future<void> _restoreSession() async {
     final saved = await SessionStorageService.loadSession();
     if (saved != null) {
-      _currentUser = UserModel(
-        staffId: saved['staffId']!,
-        name: saved['name']!,
-        role: saved['role']!,
-      );
-      _isLoggedIn = true;
+      final status = saved['status'] ?? 'Active';
+      if (status.toLowerCase() != 'active') {
+        await SessionStorageService.clearSession();
+        _currentUser = null;
+        _isLoggedIn = false;
+        await ForegroundServiceManager.stopService();
+      } else {
+        _currentUser = UserModel(
+          staffId: saved['staffId']!,
+          name: saved['name']!,
+          role: saved['role']!,
+          status: status,
+        );
+        _isLoggedIn = true;
+        // Start background alerting only when active session is restored
+        await ForegroundServiceManager.startService();
+      }
+    } else {
+      _currentUser = null;
+      _isLoggedIn = false;
+      await ForegroundServiceManager.stopService();
     }
     _isRestoringSession = false;
     notifyListeners();
@@ -63,18 +85,23 @@ class AppState extends ChangeNotifier {
 
   void _bindFirebase() {
     _patientsSub = _rtdbService.patientsStream.listen((livePatients) {
-      if (livePatients.isNotEmpty) {
-        _patients = livePatients;
+      _patients = livePatients;
+      if (_patients.isNotEmpty) {
         if (!_patients.any((p) => p.id == _selectedPatientId)) {
           _selectedPatientId = _patients.first.id;
         }
-        notifyListeners();
+      } else {
+        _selectedPatientId = '';
       }
+      notifyListeners();
     });
 
     _alertsSub = _rtdbService.alertsStream.listen((liveAlerts) {
       _alerts = liveAlerts;
-      AlertNotificationService.processLiveAlerts(liveAlerts);
+      // Do NOT trigger alert notifications on a logged-out phone
+      if (_isLoggedIn) {
+        AlertNotificationService.processLiveAlerts(liveAlerts);
+      }
       notifyListeners();
     });
 
@@ -90,21 +117,22 @@ class AppState extends ChangeNotifier {
     _patients = [];
     _alerts = [];
     _devices = [];
+    _selectedPatientId = '';
   }
 
   Patient _createDefaultPatient() {
     return Patient(
-      id: '-P-Ufwr3l6JLCYU9PZEf',
-      name: 'Jane Doe',
-      mrn: '#990142',
-      initials: 'JD',
-      chair: '2',
+      id: '',
+      name: 'No Patient Selected',
+      mrn: '--',
+      initials: '--',
+      chair: '--',
       department: 'NephroAsia Dialysis Bay',
-      session: 'Session 2',
-      deviceId: 'device1',
+      session: 'Session --',
+      deviceId: 'N/A',
       date: DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now()),
       startTime: '--',
-      primaryNurse: 'Clark Kent',
+      primaryNurse: '--',
       duration: '--',
       sessionStatus: 'Waiting',
       status: AlertSeverity.info,
@@ -125,6 +153,7 @@ class AppState extends ChangeNotifier {
 
   List<Patient> get patients => _patients;
   List<DeviceModel> get devices => _devices;
+  List<AlertItem> get alerts => _alerts;
 
   Patient get selectedPatient =>
       _patients.firstWhere((p) => p.id == _selectedPatientId, orElse: () => _patients.isNotEmpty ? _patients.first : _createDefaultPatient());
@@ -138,10 +167,18 @@ class AppState extends ChangeNotifier {
   int get warningPatientsCount => _patients.where((p) => p.sessionStatus == 'Ongoing' && p.deviceId != 'N/A' && p.status == AlertSeverity.warning).length;
   int get criticalPatientsCount => _patients.where((p) => p.sessionStatus == 'Ongoing' && p.deviceId != 'N/A' && p.status == AlertSeverity.critical).length;
 
-  Future<bool> signInWithFirebase(String staffId, String password) async {
+  Future<bool> signInWithFirebase(
+    String staffId,
+    String password, {
+    String? selectedRole,
+    http.Client? client,
+  }) async {
+    _lastAuthError = null;
     final user = await _rtdbService.authenticateStaff(
       staffId: staffId.trim(),
       password: password.trim(),
+      selectedRole: selectedRole,
+      client: client,
     );
 
     if (user != null) {
@@ -153,27 +190,35 @@ class AppState extends ChangeNotifier {
         staffId: user.staffId,
         name: user.name,
         role: user.role,
+        status: user.status,
       );
+      // Start background monitoring upon nurse authentication
+      await ForegroundServiceManager.startService();
       notifyListeners();
       return true;
     }
+    _lastAuthError = _rtdbService.lastAuthError;
+    notifyListeners();
     return false;
   }
 
-  void signIn(String staffId, String pin) {
-    _currentUser = UserModel(
-      staffId: staffId.isNotEmpty ? staffId : 'HN-00312',
-      name: 'Clark Kent',
-      role: 'Head Nurse',
-    );
-    _isLoggedIn = true;
-    _currentTabIndex = 0;
+  @visibleForTesting
+  void setCurrentUserForTesting(UserModel? user) {
+    _currentUser = user;
+    _isLoggedIn = user != null;
     notifyListeners();
   }
 
   Future<void> signOut() async {
-    // Clear the persisted session first so restart won't auto-login
+    // 1. Immediately stop the foreground background service
+    await ForegroundServiceManager.stopService();
+
+    // 2. Clear all visible heads-up notifications
+    await AlertNotificationService.cancelAllNotifications();
+
+    // 3. Clear the persisted session so restart won't auto-login
     await SessionStorageService.clearSession();
+
     _isLoggedIn = false;
     _currentUser = null;
     notifyListeners();
@@ -189,64 +234,128 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void acknowledgeAlert(String alertId, {String? note}) {
+  Future<bool> acknowledgeAlert(String alertId, {String? note, http.Client? client}) async {
+    _lastAlertError = null;
+
+    if (currentUser?.isAdmin == true || userRole.toLowerCase() == 'admin') {
+      _lastAlertError = 'Admin accounts cannot acknowledge clinical alerts.';
+      debugPrint('acknowledgeAlert rejected: $_lastAlertError');
+      notifyListeners();
+      return false;
+    }
+
     final timeStr = DateFormat('HH:mm').format(DateTime.now());
     final index = _alerts.indexWhere((a) => a.id == alertId);
     String? patientId;
+    String? session;
     if (index != -1) {
-      patientId = _alerts[index].patientId;
-      _alerts[index].acknowledge(nurseName: nurseName, time: timeStr);
+      final a = _alerts[index];
+      patientId = a.patientId;
+      session = a.session;
+      _alerts[index].acknowledge(
+        nurseName: nurseName,
+        time: timeStr,
+        nurseId: currentStaffId,
+      );
       if (note != null) _alerts[index].note = note;
       notifyListeners();
     }
+
+    if (patientId != null && patientId.isNotEmpty && (session == null || session.isEmpty)) {
+      final pIndex = _patients.indexWhere((p) => p.id == patientId);
+      if (pIndex != -1) {
+        session = _patients[pIndex].session;
+      }
+    }
+
     AlertNotificationService.dismissAlert(alertId, patientId: patientId);
-    _rtdbService.acknowledgeAlert(
+
+    final success = await _rtdbService.acknowledgeAlert(
       alertId: alertId,
       nurseName: nurseName,
+      nurseId: currentStaffId,
+      userRole: userRole,
+      patientId: patientId,
+      session: session,
       time: timeStr,
       note: note,
+      client: client,
     );
+
+    if (!success) {
+      _lastAlertError = _rtdbService.lastAlertError;
+      notifyListeners();
+    }
+    return success;
   }
 
   Future<bool> startSession({
     required String patientId,
     required String sessionNum,
     required String deviceId,
+    http.Client? client,
   }) async {
-    final index = _patients.indexWhere((p) => p.id == patientId);
-    if (index != -1) {
-      final p = _patients[index];
-      _patients[index] = p.copyWith(
-        sessionStatus: 'Waiting',
-        session: 'Session $sessionNum',
-        deviceId: deviceId,
-        status: AlertSeverity.info,
-      );
-      notifyListeners();
-    }
-    return await _rtdbService.startSession(
+    final success = await _rtdbService.startSession(
       patientId: patientId,
       sessionNum: sessionNum,
       deviceId: deviceId,
+      client: client,
     );
+    if (success) {
+      final index = _patients.indexWhere((p) => p.id == patientId);
+      if (index != -1) {
+        final p = _patients[index];
+        _patients[index] = p.copyWith(
+          sessionStatus: 'Ongoing',
+          session: 'Session $sessionNum',
+          deviceId: deviceId.isEmpty ? 'N/A' : deviceId,
+          status: AlertSeverity.info,
+        );
+        notifyListeners();
+      }
+    }
+    return success;
   }
 
   Future<bool> endSession({
     required String patientId,
     required String deviceId,
+    http.Client? client,
   }) async {
-    final index = _patients.indexWhere((p) => p.id == patientId);
-    if (index != -1) {
-      final p = _patients[index];
-      _patients[index] = p.copyWith(
-        sessionStatus: 'Completed',
-      );
-      notifyListeners();
-    }
-    return await _rtdbService.endSession(
+    final success = await _rtdbService.endSession(
       patientId: patientId,
       deviceId: deviceId,
+      client: client,
     );
+    if (success) {
+      String targetDevId = deviceId;
+      final index = _patients.indexWhere((p) => p.id == patientId);
+      if (index != -1) {
+        final p = _patients[index];
+        if (targetDevId.isEmpty || targetDevId == 'N/A') {
+          targetDevId = p.deviceId;
+        }
+        _patients[index] = p.copyWith(
+          sessionStatus: 'Completed',
+          deviceId: 'N/A',
+        );
+      }
+      if (targetDevId.isNotEmpty && targetDevId != 'N/A') {
+        final devIndex = _devices.indexWhere((d) => d.deviceId == targetDevId);
+        if (devIndex != -1) {
+          final d = _devices[devIndex];
+          _devices[devIndex] = DeviceModel(
+            deviceId: d.deviceId,
+            status: 'AVAILABLE',
+            bpm: 0,
+            spo2: 0,
+            lastUpdated: d.lastUpdated,
+          );
+        }
+      }
+      notifyListeners();
+    }
+    return success;
   }
 
   Future<bool> updatePatientSessionStatus(String patientId, String newStatus) async {
@@ -262,10 +371,10 @@ class AppState extends ChangeNotifier {
     return await _rtdbService.updatePatient(patientId, status: newStatus);
   }
 
-  Future<bool> deactivatePatient(String patientId, {String? deviceId}) async {
+  Future<bool> deactivatePatient(String patientId, {String? deviceId, http.Client? client}) async {
     _patients.removeWhere((p) => p.id == patientId);
     notifyListeners();
-    return await _rtdbService.deletePatient(patientId, deviceId: deviceId);
+    return await _rtdbService.deletePatient(patientId, deviceId: deviceId, client: client);
   }
 
   Future<bool> updatePatient(

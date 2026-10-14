@@ -7,6 +7,7 @@ class SessionStorageService {
   static const _keyStaffId = 'vitalert_staff_id';
   static const _keyName = 'vitalert_staff_name';
   static const _keyRole = 'vitalert_staff_role';
+  static const _keyStatus = 'vitalert_staff_status';
 
   /// Writes the authenticated user's data to shared_preferences.
   /// Called after a successful Firebase login.
@@ -14,12 +15,14 @@ class SessionStorageService {
     required String staffId,
     required String name,
     required String role,
+    String status = 'Active',
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyIsLoggedIn, true);
     await prefs.setString(_keyStaffId, staffId);
     await prefs.setString(_keyName, name);
     await prefs.setString(_keyRole, role);
+    await prefs.setString(_keyStatus, status);
   }
 
   /// Reads the session from disk on app startup.
@@ -32,6 +35,7 @@ class SessionStorageService {
     final staffId = prefs.getString(_keyStaffId) ?? '';
     final name = prefs.getString(_keyName) ?? '';
     final role = prefs.getString(_keyRole) ?? '';
+    final status = prefs.getString(_keyStatus) ?? 'Active';
 
     // Treat an empty staffId as no valid session
     if (staffId.isEmpty) return null;
@@ -40,6 +44,7 @@ class SessionStorageService {
       'staffId': staffId,
       'name': name,
       'role': role,
+      'status': status,
     };
   }
 
@@ -51,5 +56,6 @@ class SessionStorageService {
     await prefs.remove(_keyStaffId);
     await prefs.remove(_keyName);
     await prefs.remove(_keyRole);
+    await prefs.remove(_keyStatus);
   }
 }
