@@ -678,13 +678,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Session status pill badge builder matching Image 1
-  Widget _buildSessionStatusBadge(String status) {
+  Widget _buildSessionStatusBadge(String status, {bool isIdle = false}) {
     Color bg;
     Color border;
     Color text;
 
     final lower = status.toLowerCase();
-    if (lower == 'ongoing') {
+    final displayStatus = (isIdle || lower.contains('idle')) ? 'WAITING (IDLE)' : status;
+
+    if (isIdle || lower.contains('idle')) {
+      bg = const Color(0xFFFFFBEB);
+      border = const Color(0xFFFDE68A);
+      text = const Color(0xFFB45309);
+    } else if (lower == 'ongoing') {
       bg = const Color(0xFFECFDF5);
       border = const Color(0xFFA7F3D0);
       text = const Color(0xFF047857);
@@ -711,10 +717,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         border: Border.all(color: border),
       ),
       child: Text(
-        status,
+        displayStatus,
         style: TextStyle(
           color: text,
-          fontSize: 10,
+          fontSize: (isIdle || lower.contains('idle')) ? 9 : 10,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -835,7 +841,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Icon(Icons.visibility_outlined, size: 16, color: Color(0xFF475569)),
               SizedBox(width: 10),
-              Text('View', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+              Text('Patient Log', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
             ],
           ),
         ),
@@ -870,7 +876,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Icon(Icons.visibility_outlined, size: 16, color: Color(0xFF475569)),
               SizedBox(width: 10),
-              Text('View', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+              Text('Patient Log', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
             ],
           ),
         ),
@@ -1557,7 +1563,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               SizedBox(
                                 width: 115,
                                 child: Center(
-                                  child: _buildSessionStatusBadge(patient.sessionStatus),
+                                  child: _buildSessionStatusBadge(
+                                    patient.sessionStatus,
+                                    isIdle: patient.isDeviceIdle || patient.isWaitingIdle,
+                                  ),
                                 ),
                               ),
 

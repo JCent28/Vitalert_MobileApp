@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -6,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vitalert/models/alert_item.dart';
 import 'package:vitalert/models/patient.dart';
 import 'package:vitalert/models/user_model.dart';
+import 'package:vitalert/screens/alerts_screen.dart';
 import 'package:vitalert/services/firebase_realtime_service.dart';
 import 'package:vitalert/state/app_state.dart';
 
@@ -278,4 +280,67 @@ void main() {
       expect(ackAlert.note, equals('Checked vitals'));
     });
   });
+
+  group('AlertsScreen UI - Acknowledge Confirmation Dialog Tests', () {
+    testWidgets('shows confirmation prompt when tapping Acknowledge button, dismisses on cancel', (tester) async {
+      final appState = AppState();
+      final alert = AlertItem(
+        id: 'alert_ui_test',
+        patientId: 'p1',
+        patientName: 'Jane Doe',
+        chairLocation: 'Chair 1',
+        wardArea: 'Station 1',
+        severity: AlertSeverity.critical,
+        title: 'Critical SpO2',
+        message: 'SpO2 dropped to 85%',
+        timeString: '10:00',
+        isAcknowledged: false,
+      );
+
+      appState.alerts.clear();
+      appState.alerts.add(alert);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AlertsScreen(
+              state: appState,
+              onPatientSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find the Acknowledge button on the active card
+      final ackBtn = find.widgetWithText(ElevatedButton, 'Acknowledge');
+      expect(ackBtn, findsOneWidget);
+
+      // Tap the Acknowledge button
+      await tester.tap(ackBtn);
+      await tester.pumpAndSettle();
+
+      // Confirmation dialog should appear with exact prompt text
+      expect(find.text('Acknowledge Alert?'), findsOneWidget);
+      expect(
+        find.text(
+          'Are you sure you want to acknowledge this alert? This will record your attendance for this patient.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Jane Doe (Chair 1)'), findsOneWidget);
+
+      // Tap Cancel
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      // Dialog is dismissed, alert remains unacknowledged
+      expect(find.text('Acknowledge Alert?'), findsNothing);
+      expect(alert.isAcknowledged, isFalse);
+      expect(appState.activeAlerts.length, equals(1));
+
+      appState.dispose();
+    });
+  });
 }
+

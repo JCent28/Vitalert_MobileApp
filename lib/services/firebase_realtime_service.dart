@@ -12,7 +12,7 @@ import 'vital_thresholds.dart';
 
 class FirebaseRealtimeService {
   static const String databaseUrl =
-      'https://vitalert-app-default-rtdb.asia-southeast1.firebasedatabase.app';
+      'https://vitalert-dcd3f-default-rtdb.asia-southeast1.firebasedatabase.app';
 
   Timer? _pollingTimer;
   final _patientsController = StreamController<List<Patient>>.broadcast();
@@ -27,6 +27,39 @@ class FirebaseRealtimeService {
   String? lastSessionError;
   String? lastAlertError;
   String? lastAuthError;
+
+  final Map<String, _DeviceTelemetryTracker> _deviceTrackers = {};
+
+  @visibleForTesting
+  void simulateDeviceIdleForTesting(
+    String patientId, {
+    Duration? idleDuration,
+    String? lastReceivedTime,
+    int? lastBpm,
+    int? lastSpO2,
+    String? deviceUpdated,
+  }) {
+    final now = DateTime.now();
+    final idleTime = now.subtract(idleDuration ?? const Duration(seconds: 65));
+    final existing = _deviceTrackers[patientId];
+    final bpm = lastBpm ?? existing?.lastBpm ?? 75;
+    final spo2 = lastSpO2 ?? existing?.lastSpO2 ?? 98;
+    final devUp = deviceUpdated ?? existing?.lastDeviceUpdated ?? lastReceivedTime ?? DateFormat('HH:mm:ss').format(idleTime);
+
+    _deviceTrackers[patientId] = _DeviceTelemetryTracker(
+      lastBpm: bpm,
+      lastSpO2: spo2,
+      lastDeviceUpdated: devUp,
+      lastChangeTime: idleTime,
+      lastReceivedFormatted: lastReceivedTime ?? DateFormat('HH:mm:ss').format(idleTime),
+      isIdle: true,
+    );
+  }
+
+  @visibleForTesting
+  void clearDeviceTrackersForTesting() {
+    _deviceTrackers.clear();
+  }
 
   /// Normalizes chair identifiers for consistent comparison (e.g. "Chair 1" -> "1").
   static String normalizeChair(String chair) {
@@ -465,8 +498,14 @@ class FirebaseRealtimeService {
         final avgSpO2 = spO2History.isNotEmpty ? spO2History.reduce((a, b) => a + b) / spO2History.length : liveSpO2.toDouble();
 
         final rawStatus = (pData['status'] ?? 'Waiting').toString();
+        final isExplicitIdle = rawStatus.toLowerCase().contains('idle') ||
+            pData['is_idle'] == true ||
+            pData['device_idle'] == true;
+
         String sessionStatus = 'Waiting';
-        if (rawStatus.toLowerCase() == 'ongoing') {
+        if (isExplicitIdle) {
+          sessionStatus = 'Waiting';
+        } else if (rawStatus.toLowerCase() == 'ongoing') {
           sessionStatus = 'Ongoing';
         } else if (rawStatus.toLowerCase() == 'completed') {
           sessionStatus = 'Completed';
@@ -530,12 +569,90 @@ class FirebaseRealtimeService {
           );
         }
 
-        // Auto-promote to Ongoing when the device starts sending live readings
-        // and the database status hasn't been updated yet.
+        // Inactivity Heartbeat Tracking
+        bool isDeviceIdle = isExplicitIdle;
+        String? lastReceivedTimestamp;
+        DateTime? lastReceivedAt;
+
+        if (isExplicitIdle) {
+          sessionStatus = 'Waiting';
+          if (pData['last_received'] != null) {
+            lastReceivedTimestamp = pData['last_received'].toString();
+          }
+        }
+
+        String devLastUpdated = '';
+        if (!hasNoDevice && devicesMap.containsKey(deviceKey) && devicesMap[deviceKey] is Map) {
+          final dev = Map<String, dynamic>.from(devicesMap[deviceKey]);
+          devLastUpdated = dev['last_updated']?.toString() ?? '';
+        }
+
         final isReceivingLiveData = !hasNoDevice && liveBpm > 0 && liveSpO2 > 0;
-        if (isReceivingLiveData && sessionStatus == 'Waiting') {
+        final trackerKey = patientId;
+
+        if (!hasNoDevice && (liveBpm > 0 || liveSpO2 > 0 || sessionStatus == 'Ongoing')) {
+          final now = DateTime.now();
+          final tracker = _deviceTrackers[trackerKey];
+
+          if (tracker == null) {
+            final formattedNow = devLastUpdated.isNotEmpty && devLastUpdated != '--'
+                ? devLastUpdated
+                : DateFormat('HH:mm:ss').format(now);
+            _deviceTrackers[trackerKey] = _DeviceTelemetryTracker(
+              lastBpm: liveBpm,
+              lastSpO2: liveSpO2,
+              lastDeviceUpdated: devLastUpdated,
+              lastChangeTime: now,
+              lastReceivedFormatted: formattedNow,
+              isIdle: isExplicitIdle,
+            );
+            lastReceivedTimestamp = formattedNow;
+            lastReceivedAt = now;
+          } else {
+            final hasVitalsChanged = (liveBpm != tracker.lastBpm || liveSpO2 != tracker.lastSpO2) && (liveBpm > 0 && liveSpO2 > 0);
+            final hasTimestampChanged = devLastUpdated.isNotEmpty && devLastUpdated != '--' && devLastUpdated != tracker.lastDeviceUpdated;
+
+            if (hasVitalsChanged || hasTimestampChanged) {
+              // Active reading changes received!
+              tracker.lastBpm = liveBpm;
+              tracker.lastSpO2 = liveSpO2;
+              tracker.lastDeviceUpdated = devLastUpdated;
+              tracker.lastChangeTime = now;
+              tracker.lastReceivedFormatted = devLastUpdated.isNotEmpty && devLastUpdated != '--'
+                  ? devLastUpdated
+                  : DateFormat('HH:mm:ss').format(now);
+              tracker.isIdle = false;
+              isDeviceIdle = false;
+            } else {
+              // No reading changes — check inactivity timeout (1 minute)
+              final idleDiff = now.difference(tracker.lastChangeTime);
+              if (idleDiff >= const Duration(minutes: 1)) {
+                tracker.isIdle = true;
+              }
+            }
+
+            if (tracker.isIdle) {
+              isDeviceIdle = true;
+              lastReceivedTimestamp = tracker.lastReceivedFormatted;
+              lastReceivedAt = tracker.lastChangeTime;
+              if (sessionStatus == 'Ongoing') {
+                sessionStatus = 'Waiting';
+                // Sync session move to Waiting in Firebase
+                http.patch(
+                  Uri.parse('$databaseUrl/patients/$patientId.json'),
+                  body: '{"status":"Waiting"}',
+                ).catchError((_) => http.Response('', 500));
+              }
+            } else {
+              lastReceivedTimestamp = tracker.lastReceivedFormatted;
+              lastReceivedAt = tracker.lastChangeTime;
+            }
+          }
+        }
+
+        // Auto-promote to Ongoing when device sends fresh readings and is NOT idle
+        if (isReceivingLiveData && sessionStatus == 'Waiting' && !isDeviceIdle) {
           sessionStatus = 'Ongoing';
-          // Sync the updated status back to Firebase
           http.patch(
             Uri.parse('$databaseUrl/patients/$patientId.json'),
             body: '{"status":"Ongoing"}',
@@ -645,6 +762,9 @@ class FirebaseRealtimeService {
             recentReadings: recentReadings.reversed.toList(),
             alertEvents: patientAlertEvents,
             sessionHistories: sessionHistories,
+            isDeviceIdle: isDeviceIdle,
+            lastReceivedTimestamp: lastReceivedTimestamp,
+            lastReceivedAt: lastReceivedAt,
           ),
         );
       }
@@ -1296,7 +1416,81 @@ class FirebaseRealtimeService {
     }
   }
 
-  // 8. Record Clinical Nurse Note to Patient History in Firebase RTDB
+  // 8. Delete / Clear Acknowledged Alerts from Firebase RTDB
+  Future<bool> deleteAcknowledgedAlerts({
+    bool clearEntireTable = false,
+    http.Client? client,
+  }) async {
+    lastAlertError = null;
+    final getFn = client != null ? client.get : http.get;
+    final patchFn = client != null ? client.patch : http.patch;
+    final deleteFn = client != null ? client.delete : http.delete;
+
+    try {
+      if (clearEntireTable) {
+        final delRes = await deleteFn(
+          Uri.parse('$databaseUrl/alerts.json'),
+        ).timeout(const Duration(seconds: 5));
+
+        if (delRes.statusCode == 200) {
+          syncData();
+          return true;
+        }
+        lastAlertError = 'Failed to clear alerts table (status ${delRes.statusCode}).';
+        return false;
+      }
+
+      // 1. Fetch current alerts from Firebase RTDB
+      final res = await getFn(Uri.parse('$databaseUrl/alerts.json'))
+          .timeout(const Duration(seconds: 5));
+
+      if (res.statusCode != 200 ||
+          res.body == 'null' ||
+          res.body.trim().isEmpty ||
+          res.body.trim() == 'null') {
+        return true; // Already empty
+      }
+
+      final decoded = jsonDecode(res.body);
+      if (decoded is! Map) return true;
+
+      // 2. Filter acknowledged alerts and prepare patch payload with null values
+      final Map<String, dynamic> patchPayload = {};
+      decoded.forEach((key, val) {
+        if (val is Map) {
+          final status = (val['status'] ?? '').toString().toLowerCase();
+          final isAck = val['is_acknowledged'] == true || status == 'acknowledged';
+          if (isAck) {
+            patchPayload[key.toString()] = null;
+          }
+        }
+      });
+
+      if (patchPayload.isEmpty) {
+        return true; // No acknowledged alerts to delete
+      }
+
+      // 3. Atomically delete acknowledged alerts in Firebase RTDB
+      final patchRes = await patchFn(
+        Uri.parse('$databaseUrl/alerts.json'),
+        body: jsonEncode(patchPayload),
+      ).timeout(const Duration(seconds: 5));
+
+      if (patchRes.statusCode == 200) {
+        syncData();
+        return true;
+      }
+
+      lastAlertError = 'Failed to delete acknowledged alerts (status ${patchRes.statusCode}).';
+      return false;
+    } catch (e) {
+      lastAlertError = 'Delete alerts error: $e';
+      debugPrint('Delete alerts error: $e');
+      return false;
+    }
+  }
+
+  // 9. Record Clinical Nurse Note to Patient History in Firebase RTDB
   Future<bool> recordClinicalNote({
     required String patientId,
     required String session,
@@ -1365,4 +1559,22 @@ class FirebaseRealtimeService {
     _alertsController.close();
     _devicesController.close();
   }
+}
+
+class _DeviceTelemetryTracker {
+  int lastBpm;
+  int lastSpO2;
+  String lastDeviceUpdated;
+  DateTime lastChangeTime;
+  String lastReceivedFormatted;
+  bool isIdle;
+
+  _DeviceTelemetryTracker({
+    required this.lastBpm,
+    required this.lastSpO2,
+    required this.lastDeviceUpdated,
+    required this.lastChangeTime,
+    required this.lastReceivedFormatted,
+    this.isIdle = false,
+  });
 }

@@ -115,6 +115,54 @@ class _PatientVitalsScreenState extends State<PatientVitalsScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Device Idle / No Signal Banner
+            if (patient.isWaitingIdle || patient.isDeviceIdle) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFDE68A), width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Device Idle / No Signal — Please check the device',
+                            style: TextStyle(color: Color(0xFF78350F), fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'No active reading changes from ${patient.deviceId.isEmpty || patient.deviceId == 'N/A' ? 'device' : patient.deviceId} for at least 1 minute. Session status moved to Waiting. Last received: ${patient.lastReceivedTimestamp ?? patient.startTime} (${patient.idleTimeAgoText})',
+                            style: const TextStyle(color: Color(0xFF92400E), fontSize: 11.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF08A),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: const Text(
+                        'IDLE',
+                        style: TextStyle(color: Color(0xFF78350F), fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Alert Section Banner
             if (!_isAcknowledged) ...[
               Container(
@@ -206,7 +254,7 @@ class _PatientVitalsScreenState extends State<PatientVitalsScreen> {
               child: ElevatedButton.icon(
                 onPressed: widget.onViewFullLog,
                 icon: const Icon(Icons.assignment_outlined, size: 16),
-                label: const Text('View Full Vitals Log & Trends', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                label: const Text('View Full Patient Log & Trends', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

@@ -4,9 +4,13 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/alert_item.dart';
+import 'alert_audio_service.dart';
 
 class AlertNotificationService {
   static const String _prefsKeyNotifiedAlerts = 'vitalert_notified_alert_ids';
+  static const String criticalChannelId = 'vitalert_critical_channel_v4';
+  static const String warningChannelId = 'vitalert_warning_channel_v4';
+
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -55,7 +59,7 @@ class AlertNotificationService {
   }
 
   /// Marks a single alert as notified across memory, disk, and isolate ports
-  static Future<void> markAlertNotified(String alertId) async {
+  static Future<void> markAlertNotified(String alertId, {String? severity}) async {
     if (alertId.isEmpty) return;
     _notifiedAlertIds.add(alertId);
 
@@ -72,12 +76,18 @@ class AlertNotificationService {
       debugPrint('Error saving notified alert ID: $e');
     }
 
+    final payload = <String, dynamic>{
+      'type': 'alert_notified',
+      'id': alertId,
+      if (severity != null) 'severity': severity,
+    };
+
     // Broadcast to the other isolate (Task <-> Main)
     try {
-      FlutterForegroundTask.sendDataToTask({'type': 'alert_notified', 'id': alertId});
+      FlutterForegroundTask.sendDataToTask(payload);
     } catch (_) {}
     try {
-      FlutterForegroundTask.sendDataToMain({'type': 'alert_notified', 'id': alertId});
+      FlutterForegroundTask.sendDataToMain(payload);
     } catch (_) {}
   }
 
@@ -129,16 +139,20 @@ class AlertNotificationService {
         // Request runtime notification permission for Android 13+ (API 33+)
         await androidPlugin.requestNotificationsPermission();
 
-        // Delete legacy v1 channels if they exist so OS adopts new audio configuration
+        // Delete legacy channels so OS adopts fresh v4 audio configuration
         try {
           await androidPlugin.deleteNotificationChannel('vitalert_critical_channel');
+          await androidPlugin.deleteNotificationChannel('vitalert_critical_channel_v2');
+          await androidPlugin.deleteNotificationChannel('vitalert_critical_channel_v3');
           await androidPlugin.deleteNotificationChannel('vitalert_warning_channel');
+          await androidPlugin.deleteNotificationChannel('vitalert_warning_channel_v2');
+          await androidPlugin.deleteNotificationChannel('vitalert_warning_channel_v3');
         } catch (_) {}
 
         // 1. Critical Channel (Max Importance, Screen Wake, Alarm Category, Pulsating Vibration, Custom Audio)
         final AndroidNotificationChannel criticalChannel =
             AndroidNotificationChannel(
-          'vitalert_critical_channel_v2',
+          criticalChannelId,
           'Critical Patient Alarms',
           description:
               'Immediate alarms for critical desaturation and severe tachycardia.',
@@ -156,7 +170,7 @@ class AlertNotificationService {
         // 2. Warning Channel (High Importance, Custom Audio)
         final AndroidNotificationChannel warningChannel =
             AndroidNotificationChannel(
-          'vitalert_warning_channel_v2',
+          warningChannelId,
           'Warning Patient Alerts',
           description:
               'Alerts for physiological parameter warnings and vital deviations.',
@@ -175,7 +189,7 @@ class AlertNotificationService {
       }
 
       _isInitialized = true;
-      debugPrint('AlertNotificationService initialized successfully.');
+      debugPrint('AlertNotificationService initialized successfully with channel v4.');
     } catch (e) {
       debugPrint('Notification init error: $e');
     }
@@ -239,17 +253,32 @@ class AlertNotificationService {
     }
 
     // Record as notified across memory, storage, and cross-isolate ports
-    await markAlertNotified(alert.id);
+    await markAlertNotified(alert.id, severity: alert.severity.name);
 
     final isCritical = alert.severity == AlertSeverity.critical;
+
+    // Concurrently trigger in-app audible alarm so clinicians hear the alert directly from speaker
+    if (isCritical) {
+      AlertAudioService.playCriticalAlarm().catchError((e) {
+        debugPrint('In-app critical audio playback error: $e');
+        return false;
+      });
+    } else {
+      AlertAudioService.playWarningAlert().catchError((e) {
+        debugPrint('In-app warning audio playback error: $e');
+        return false;
+      });
+    }
+
     // Use patient ID hash so each patient has at most 1 active heads-up notification, replacing older alerts from that patient
+    // Clamp to positive 31-bit integer for Android NotificationManager compatibility
     final id = alert.patientId.isNotEmpty
-        ? alert.patientId.hashCode
+        ? (alert.patientId.hashCode.abs() % 2147483647)
         : _activeNotificationId;
 
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      isCritical ? 'vitalert_critical_channel_v2' : 'vitalert_warning_channel_v2',
+      isCritical ? criticalChannelId : warningChannelId,
       isCritical ? 'Critical Patient Alarms' : 'Warning Patient Alerts',
       channelDescription: isCritical
           ? 'Immediate alarms for critical desaturation and severe tachycardia.'
@@ -305,21 +334,35 @@ class AlertNotificationService {
 
   static Future<void> dismissAlert(String alertId, {String? patientId}) async {
     try {
-      await _notificationsPlugin.cancel(alertId.hashCode);
+      await AlertAudioService.stopSound();
+      await _notificationsPlugin.cancel(alertId.hashCode.abs() % 2147483647);
       if (patientId != null && patientId.isNotEmpty) {
-        await _notificationsPlugin.cancel(patientId.hashCode);
+        await _notificationsPlugin.cancel(patientId.hashCode.abs() % 2147483647);
       }
     } catch (_) {}
   }
 
   static Future<void> cancelAllNotifications() async {
     try {
+      await AlertAudioService.stopSound();
       await _notificationsPlugin.cancelAll();
     } catch (_) {}
   }
 
-  /// Dispatches a test alarm notification (Warning or Critical) to verify sound & vibration on-device
+  /// Dispatches a test alarm notification (Warning or Critical) and plays the audio directly to verify sound & vibration on-device
   static Future<void> triggerTestAlertSound({required bool isCritical}) async {
+    // 1. Play audible sound directly through device speaker
+    try {
+      if (isCritical) {
+        await AlertAudioService.playCriticalAlarm();
+      } else {
+        await AlertAudioService.playWarningAlert();
+      }
+    } catch (e) {
+      debugPrint('Error playing test alert sound: $e');
+    }
+
+    // 2. Dispatch heads-up test notification
     final testAlert = AlertItem(
       id: 'test_alert_${DateTime.now().millisecondsSinceEpoch}',
       patientId: 'patient_sound_test',

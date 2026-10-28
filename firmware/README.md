@@ -59,7 +59,7 @@ The firmware evaluates vitals identically to the mobile app's [`VitalThresholds`
 
 The device automatically pushes a `PATCH` request every 2 seconds to:
 ```
-https://vitalert-app-default-rtdb.asia-southeast1.firebasedatabase.app/devices/device3.json?auth=...
+https://vitalert-dcd3f-default-rtdb.asia-southeast1.firebasedatabase.app/devices/device3.json?auth=...
 ```
 
 **JSON Payload Schema:**

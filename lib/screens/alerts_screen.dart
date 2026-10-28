@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/alert_item.dart';
+import '../services/alert_audio_service.dart';
 import '../services/alert_notification_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -23,6 +24,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   String _selectedSeverityFilter = 'All';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -71,17 +73,42 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 onSelected: (val) {
                   if (val == 'critical') {
                     AlertNotificationService.triggerTestAlertSound(isCritical: true);
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Testing Critical Alarm audio (critical2.mp3)...'),
-                        duration: Duration(seconds: 2),
+                      SnackBar(
+                        content: const Text('Testing Critical Alarm audio (critical_alarm.mp3)...'),
+                        duration: const Duration(seconds: 4),
+                        action: SnackBarAction(
+                          label: 'Stop',
+                          textColor: Colors.yellowAccent,
+                          onPressed: () {
+                            AlertAudioService.stopSound();
+                          },
+                        ),
                       ),
                     );
                   } else if (val == 'warning') {
                     AlertNotificationService.triggerTestAlertSound(isCritical: false);
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Testing Warning Alert audio (warning_alert.mp3)...'),
+                        duration: const Duration(seconds: 4),
+                        action: SnackBarAction(
+                          label: 'Stop',
+                          textColor: Colors.yellowAccent,
+                          onPressed: () {
+                            AlertAudioService.stopSound();
+                          },
+                        ),
+                      ),
+                    );
+                  } else if (val == 'stop') {
+                    AlertAudioService.stopSound();
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Testing Warning Alert audio (warning1.mp3)...'),
+                        content: Text('Alert audio stopped.'),
                         duration: Duration(seconds: 2),
                       ),
                     );
@@ -105,6 +132,17 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         Icon(Icons.notifications_active_outlined, color: AppColors.warningAmber, size: 18),
                         SizedBox(width: 8),
                         Text('Test Warning Sound'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'stop',
+                    child: Row(
+                      children: [
+                        Icon(Icons.volume_off_outlined, color: AppColors.textMuted, size: 18),
+                        SizedBox(width: 8),
+                        Text('Stop Sound'),
                       ],
                     ),
                   ),
@@ -169,7 +207,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 ),
                 const SizedBox(width: 8),
                 _buildCountPill(
-                  label: 'Acknowledged',
+                  label: 'Attend To',
                   count: '$ackCount',
                   color: AppColors.normalGreen,
                   bg: Colors.white,
@@ -268,7 +306,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Acknowledged',
+                            'Attend To',
                             style: TextStyle(
                               color: !_showActive ? Colors.white : const Color(0xFF475569),
                               fontSize: 12,
@@ -348,6 +386,59 @@ class _AlertsScreenState extends State<AlertsScreen> {
             const SizedBox(height: 12),
           ],
 
+          // Acknowledged Tab Action Bar (Delete All Acknowledged button)
+          if (!_showActive && acknowledgedAlerts.isNotEmpty) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'ACKNOWLEDGED ALERTS (${acknowledgedAlerts.length})',
+                  style: AppTypography.labelCaps(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                    weight: FontWeight.w700,
+                  ),
+                ),
+                InkWell(
+                  key: const Key('delete_all_acknowledged_btn'),
+                  onTap: _isDeleting ? null : () => _confirmDeleteAcknowledged(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isDeleting)
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDC2626)),
+                          )
+                        else
+                          const Icon(Icons.delete_sweep_outlined, size: 14, color: Color(0xFFDC2626)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Delete Acknowledged',
+                          style: AppTypography.labelCaps(
+                            color: const Color(0xFFDC2626),
+                            fontSize: 11,
+                            weight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // Alerts List Content
           if (_showActive)
             ..._buildActiveAlertCards(activeAlerts)
@@ -358,6 +449,134 @@ class _AlertsScreenState extends State<AlertsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteAcknowledged(BuildContext context) async {
+    final count = widget.state.acknowledgedAlerts.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626)),
+            SizedBox(width: 8),
+            Text('Delete Acknowledged?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'This will permanently delete all $count acknowledged alert(s) from the database.\n\nActive alerts will not be affected.',
+          style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isDeleting = true);
+      final success = await widget.state.deleteAcknowledgedAlerts();
+      if (mounted) {
+        setState(() => _isDeleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success
+                  ? 'All acknowledged alerts deleted from database.'
+                  : 'Failed to delete alerts: ${widget.state.lastAlertError ?? "Unknown error"}',
+            ),
+            backgroundColor: success ? const Color(0xFF059669) : const Color(0xFFDC2626),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<bool> _confirmAcknowledgeAlert(BuildContext context, AlertItem alert) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.assignment_turned_in_outlined, color: Color(0xFF007D79), size: 22),
+            SizedBox(width: 8),
+            Text(
+              'Acknowledge Alert?',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to acknowledge this alert? This will record your attendance for this patient.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_outline, size: 16, color: Color(0xFF64748B)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${alert.patientName} (${alert.chairLocation})',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            key: const Key('confirm_acknowledge_btn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF007D79),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Acknowledge'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
   Color activeAlertCountColor(int count) {
@@ -846,6 +1065,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
+                        final confirmed = await _confirmAcknowledgeAlert(context, alert);
+                        if (!confirmed) return;
+
                         final messenger = ScaffoldMessenger.of(context);
                         final success = await widget.state.acknowledgeAlert(alert.id);
                         if (!success) {

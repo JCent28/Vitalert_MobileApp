@@ -55,7 +55,7 @@ class AppBottomBar extends StatelessWidget {
                 child: _buildNavItem(
                   context: context,
                   index: 2,
-                  label: 'Vitals Log',
+                  label: 'Patient Log',
                   icon: Icons.monitor_heart_outlined,
                   activeIcon: Icons.monitor_heart_rounded,
                 ),

@@ -36,7 +36,7 @@ const char* password = "PLDTWIFIqhaj9";
 // REST write target: https://<HOST>/<PATH>.json
 // If your database rules are not public/test mode, append
 // "?auth=<DATABASE_SECRET_OR_ID_TOKEN>" to FIREBASE_PATH below.
-const char* FIREBASE_HOST = "vitalert-app-default-rtdb.asia-southeast1.firebasedatabase.app";
+const char* FIREBASE_HOST = "vitalert-dcd3f-default-rtdb.asia-southeast1.firebasedatabase.app";
 const char* FIREBASE_PATH = "/devices/device3.json?auth=EYsZ9e454gtJ5QF4wPROvAmCEKzSANGNiryI05zT";
 const char* DEVICE_ID     = "device3";
 

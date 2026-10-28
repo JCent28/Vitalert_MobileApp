@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:http/http.dart' as http;
+import 'alert_audio_service.dart';
 import 'alert_notification_service.dart';
 import 'session_storage_service.dart';
 import '../models/alert_item.dart';
@@ -14,7 +15,7 @@ void startCallback() {
 
 class VitalertTaskHandler extends TaskHandler {
   static const String _databaseUrl =
-      'https://vitalert-app-default-rtdb.asia-southeast1.firebasedatabase.app';
+      'https://vitalert-dcd3f-default-rtdb.asia-southeast1.firebasedatabase.app';
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -106,6 +107,18 @@ class ForegroundServiceManager {
           final id = data['id'];
           if (id is String && id.isNotEmpty) {
             AlertNotificationService.recordNotifiedIdInMemory(id);
+          }
+          final severity = data['severity'];
+          if (severity == 'critical') {
+            AlertAudioService.playCriticalAlarm().catchError((e) {
+              debugPrint('ForegroundServiceManager critical audio error: $e');
+              return false;
+            });
+          } else if (severity == 'warning') {
+            AlertAudioService.playWarningAlert().catchError((e) {
+              debugPrint('ForegroundServiceManager warning audio error: $e');
+              return false;
+            });
           }
         }
       });

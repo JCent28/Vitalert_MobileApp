@@ -12,8 +12,8 @@ class VitalThresholds {
   static const double criticalMinHr = 50.0; // Critical low: < 50 bpm
 
   // Safe Ranges
-  static const String hrSafeRangeText = '60 – 100 bpm';
-  static const String spo2SafeRangeText = '≥ 95%';
+  static const String hrSafeRangeText = '60 - 100 bpm';
+  static const String spo2SafeRangeText = '>= 95%';
 
   /// Analyzes heart rate and SpO2 to return the clinical alert severity
   static AlertSeverity evaluateVitals(int hr, int spO2) {
@@ -31,9 +31,9 @@ class VitalThresholds {
     final List<String> messages = [];
 
     if (spO2 < criticalMinSpo2) {
-      messages.add('Critical SpO₂ dropped to $spO2% (Threshold: < ${criticalMinSpo2.toInt()}%)');
+      messages.add('Critical SpO2 dropped to $spO2% (Threshold: < ${criticalMinSpo2.toInt()}%)');
     } else if (spO2 < warningMinSpo2) {
-      messages.add('SpO₂ decreased to $spO2% (Threshold: < ${warningMinSpo2.toInt()}%)');
+      messages.add('SpO2 decreased to $spO2% (Threshold: < ${warningMinSpo2.toInt()}%)');
     }
 
     if (hr > criticalMaxHr) {
@@ -43,9 +43,9 @@ class VitalThresholds {
     } else if (hr < criticalMinHr) {
       messages.add('Critical Bradycardia: BPM dropped to $hr (Threshold: < ${criticalMinHr.toInt()})');
     } else if (hr < warningMinHr) {
-      messages.add('Low BPM: $hr bpm (Warning range: ${criticalMinHr.toInt()}–${(warningMinHr - 1).toInt()} bpm)');
+      messages.add('Low BPM: $hr bpm (Warning range: ${criticalMinHr.toInt()}-${(warningMinHr - 1).toInt()} bpm)');
     }
 
-    return messages.isNotEmpty ? messages.join(' • ') : 'Vitals within normal limits';
+    return messages.isNotEmpty ? messages.join(' | ') : 'Vitals within normal limits';
   }
 }

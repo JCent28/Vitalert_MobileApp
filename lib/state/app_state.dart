@@ -35,6 +35,10 @@ class AppState extends ChangeNotifier {
   String get shiftTime => 'Shift A · ${DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now())}';
   int get currentTabIndex => _currentTabIndex;
   String get selectedPatientId => _selectedPatientId;
+  void setSelectedPatientId(String id) {
+    _selectedPatientId = id;
+    notifyListeners();
+  }
   String? get lastSessionError => _rtdbService.lastSessionError;
   String? _lastAlertError;
   String? get lastAlertError => _lastAlertError ?? _rtdbService.lastAlertError;
@@ -289,6 +293,38 @@ class AppState extends ChangeNotifier {
     return success;
   }
 
+  Future<bool> deleteAcknowledgedAlerts({
+    bool clearEntireTable = false,
+    http.Client? client,
+  }) async {
+    _lastAlertError = null;
+
+    final previousAlerts = List<AlertItem>.from(_alerts);
+
+    // Optimistic local update
+    if (clearEntireTable) {
+      _alerts.clear();
+    } else {
+      _alerts.removeWhere((a) => a.isAcknowledged);
+    }
+    notifyListeners();
+
+    final success = await _rtdbService.deleteAcknowledgedAlerts(
+      clearEntireTable: clearEntireTable,
+      client: client,
+    );
+
+    if (!success) {
+      _lastAlertError = _rtdbService.lastAlertError;
+      _alerts = previousAlerts;
+      notifyListeners();
+      return false;
+    }
+
+    notifyListeners();
+    return true;
+  }
+
   Future<bool> startSession({
     required String patientId,
     required String sessionNum,
@@ -492,8 +528,18 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
     _patientsSub?.cancel();
     _alertsSub?.cancel();
     _devicesSub?.cancel();

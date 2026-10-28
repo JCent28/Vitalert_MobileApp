@@ -80,7 +80,9 @@ class ExportService {
       buffer.writeln('$index,"$ts","$time","$dur",$hr,$spo2,"$status","$sev","$remark"');
     }
 
-    return buffer.toString();
+    // Prepend UTF-8 Byte Order Mark (\uFEFF) so Excel/Spreadsheet apps on Windows
+    // and Android automatically open in UTF-8 mode without garbling characters.
+    return '\uFEFF${buffer.toString()}';
   }
 
   /// Exports the session CSV by opening the system share sheet / file saver.
@@ -99,11 +101,11 @@ class ExportService {
         [
           XFile.fromData(
             Uint8List.fromList(bytes),
-            mimeType: 'text/csv',
+            mimeType: 'text/csv; charset=utf-8',
             name: fileName,
           ),
         ],
-        text: 'Vitalert Dialysis Telemetry Report - ${patient.name} (Session $sessionNum)',
+        text: 'Vitalert Dialysis Telemetry Report - ${sanitizeForExport(patient.name)} (Session $sessionNum)',
         subject: 'Vitalert Session Report ($fileName)',
       );
       return;
@@ -112,17 +114,18 @@ class ExportService {
     try {
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/$fileName');
-      await file.writeAsString(csvContent, flush: true);
+      final bytes = utf8.encode(csvContent);
+      await file.writeAsBytes(bytes, flush: true);
 
       await Share.shareXFiles(
         [
           XFile(
             file.path,
-            mimeType: 'text/csv',
+            mimeType: 'text/csv; charset=utf-8',
             name: fileName,
           ),
         ],
-        text: 'Vitalert Dialysis Telemetry Report - ${patient.name} (Session $sessionNum)',
+        text: 'Vitalert Dialysis Telemetry Report - ${sanitizeForExport(patient.name)} (Session $sessionNum)',
         subject: 'Vitalert Session Report ($fileName)',
       );
     } catch (_) {
@@ -257,7 +260,7 @@ class ExportService {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  'Patient: ${patient.name} (${patient.mrn}) | Session ${session.sessionNumber}',
+                  sanitizeForExport('Patient: ${patient.name} (${patient.mrn}) | Session ${session.sessionNumber}'),
                   style: pw.TextStyle(fontSize: 7.5, color: mutedText),
                 ),
                 pw.Text(
@@ -496,7 +499,7 @@ class ExportService {
                       ),
                       pw.SizedBox(height: 4),
                       pw.Text(
-                        'Attending Nurse: ${patient.primaryNurse}',
+                        sanitizeForExport('Attending Nurse: ${patient.primaryNurse}'),
                         style: pw.TextStyle(fontSize: 8, color: darkText),
                       ),
                       pw.Text(
@@ -579,12 +582,12 @@ class ExportService {
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(
-          label.toUpperCase(),
+          sanitizeForExport(label.toUpperCase()),
           style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: textMuted),
         ),
         pw.SizedBox(height: 2),
         pw.Text(
-          value.isNotEmpty ? value : '--',
+          sanitizeForExport(value.isNotEmpty ? value : '--'),
           style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: textDark),
         ),
       ],
@@ -611,17 +614,17 @@ class ExportService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            label,
+            sanitizeForExport(label),
             style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: primaryColor),
           ),
           pw.SizedBox(height: 4),
           pw.Text(
-            value,
+            sanitizeForExport(value),
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: textColor),
           ),
           pw.SizedBox(height: 2),
           pw.Text(
-            subtext,
+            sanitizeForExport(subtext),
             style: pw.TextStyle(fontSize: 7.5, color: PdfColor.fromHex('64748B')),
           ),
         ],
@@ -641,7 +644,7 @@ class ExportService {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4.5),
       child: pw.Text(
-        text,
+        sanitizeForExport(text),
         textAlign: align,
         style: pw.TextStyle(
           fontSize: isHeader ? 7.5 : 7.5,
@@ -682,7 +685,7 @@ class ExportService {
             borderRadius: pw.BorderRadius.circular(3),
           ),
           child: pw.Text(
-            status.toUpperCase(),
+            sanitizeForExport(status.toUpperCase()),
             style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: fg),
           ),
         ),
@@ -690,7 +693,46 @@ class ExportService {
     );
   }
 
+  /// Cleans text of problematic Unicode characters (such as subscript '₂',
+  /// en-dashes '–', em-dashes '—', bullets '•', and special quotes) to guarantee
+  /// clean rendering in PDF Type-1 fonts and prevent character corruption in Excel/CSV exports.
+  static String sanitizeForExport(String text) {
+    if (text.isEmpty) return text;
+    return text
+        // Replace subscript numbers with standard ASCII numbers (e.g. SpO₂ -> SpO2)
+        .replaceAll('₀', '0')
+        .replaceAll('₁', '1')
+        .replaceAll('₂', '2')
+        .replaceAll('₃', '3')
+        .replaceAll('₄', '4')
+        .replaceAll('₅', '5')
+        .replaceAll('₆', '6')
+        .replaceAll('₇', '7')
+        .replaceAll('₈', '8')
+        .replaceAll('₉', '9')
+        // Replace typographic en-dash, em-dash, and minus with standard ASCII hyphen
+        .replaceAll('–', '-') // en-dash (\u2013)
+        .replaceAll('—', '-') // em-dash (\u2014)
+        .replaceAll('―', '-') // horizontal bar (\u2015)
+        .replaceAll('−', '-') // minus sign (\u2212)
+        // Replace bullets and middle dots with clean hyphen or pipe
+        .replaceAll('•', '-') // bullet (\u2022)
+        .replaceAll('·', '-')
+        // Replace smart/curly quotes with standard ASCII quotes
+        .replaceAll('“', '"')
+        .replaceAll('”', '"')
+        .replaceAll('‘', "'")
+        .replaceAll('’', "'")
+        // Replace non-breaking spaces
+        .replaceAll('\u00A0', ' ')
+        .replaceAll('\u202F', ' ')
+        // Replace math/inequality symbols
+        .replaceAll('≥', '>=')
+        .replaceAll('≤', '<=')
+        .replaceAll('±', '+/-');
+  }
+
   static String _escapeCsv(String val) {
-    return val.replaceAll('"', '""');
+    return sanitizeForExport(val).replaceAll('"', '""');
   }
 }

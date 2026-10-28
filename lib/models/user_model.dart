@@ -24,6 +24,8 @@ class UserModel {
 
   bool get canDeletePatients => isHeadNurse || isAdmin;
 
+  bool get canDeleteAlerts => true;
+
   bool get canAcknowledgeAlerts => !isAdmin;
 
   bool get isActive => status.toLowerCase() == 'active';

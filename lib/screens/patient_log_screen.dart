@@ -249,16 +249,22 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              // Dynamic Session Status Pill (Ongoing / Completed / Waiting)
+                              // Dynamic Session Status Pill (Ongoing / Completed / Waiting / Waiting (Idle))
                               Builder(
                                 builder: (context) {
-                                  final sStatus = patient.sessionStatus.toUpperCase();
+                                  final isIdle = patient.isWaitingIdle || patient.isDeviceIdle;
+                                  final sStatus = isIdle ? 'WAITING (IDLE)' : patient.sessionStatus.toUpperCase();
                                   Color bg = const Color(0xFFEEF2FF);
                                   Color border = const Color(0xFFC7D2FE);
                                   Color dot = const Color(0xFF4F46E5);
                                   Color text = const Color(0xFF4338CA);
 
-                                  if (sStatus == 'ONGOING') {
+                                  if (isIdle || sStatus == 'WAITING (IDLE)') {
+                                    bg = const Color(0xFFFFFBEB);
+                                    border = const Color(0xFFFDE68A);
+                                    dot = const Color(0xFFD97706);
+                                    text = const Color(0xFFB45309);
+                                  } else if (sStatus == 'ONGOING') {
                                     bg = const Color(0xFFECFDF5);
                                     border = const Color(0xFFA7F3D0);
                                     dot = const Color(0xFF059669);
@@ -440,6 +446,10 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                         ],
                       ),
                     ),
+                    if (!isVerySmall) ...[
+                      const SizedBox(width: 10),
+                      _buildChangePatientButton(context),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -449,50 +459,8 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    // 1. Change Patient Dropdown Pill Button
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          _selectedSessionNumber = null;
-                        });
-                        _showChangePatientModal(context);
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x04000000),
-                              blurRadius: 4,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Change Patient',
-                              style: TextStyle(
-                                color: Color(0xFF1E293B),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 18,
-                              color: Color(0xFF64748B),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    if (isVerySmall)
+                      _buildChangePatientButton(context),
 
                     // 2. Session Dropdown Button (Historical Sessions from Database)
                     PopupMenuButton<String>(
@@ -618,6 +586,12 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
             ),
           ),
           const SizedBox(height: 16),
+
+          // Device Idle / No Signal Warning Banner
+          if (patient.isWaitingIdle || patient.isDeviceIdle) ...[
+            _buildDeviceIdleWarningBanner(context, patient),
+            const SizedBox(height: 16),
+          ],
 
           // 1. BPM Card (Matching Screenshot 1: Highest / Lowest / Average)
           _buildTelemetryMetricCard(
@@ -1130,6 +1104,188 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
     );
   }
 
+  /// Change Patient Button Pill
+  Widget _buildChangePatientButton(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedSessionNumber = null;
+        });
+        _showChangePatientModal(context);
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x04000000),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Change Patient',
+              style: TextStyle(
+                color: Color(0xFF1E293B),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 18,
+              color: Color(0xFF64748B),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Device Idle / No Signal Warning Banner matching Reference Design
+  Widget _buildDeviceIdleWarningBanner(BuildContext context, Patient patient) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 550;
+    final devId = patient.deviceId.isEmpty || patient.deviceId == 'N/A' ? 'device' : patient.deviceId;
+    final lastTime = patient.lastReceivedTimestamp ?? (patient.startTime != '--' && patient.startTime.isNotEmpty ? patient.startTime : '18:12:24');
+    final timeAgo = patient.idleTimeAgoText;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDE68A), width: 1.2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06B45309),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: isCompact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xFFD97706),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Device Idle / No Signal — Please check the device',
+                        style: const TextStyle(
+                          color: Color(0xFF78350F),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'No active reading changes from $devId for at least 1 minute. Session status moved to Waiting. Last received: $lastTime ($timeAgo)',
+                  style: const TextStyle(
+                    color: Color(0xFF92400E),
+                    fontSize: 11.5,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF08A),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: const Text(
+                      'IDLE — CHECK DEVICE',
+                      style: TextStyle(
+                        color: Color(0xFF78350F),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFD97706),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Device Idle / No Signal — Please check the device',
+                        style: TextStyle(
+                          color: Color(0xFF78350F),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'No active reading changes from $devId for at least 1 minute. Session status moved to Waiting. Last received: $lastTime ($timeAgo)',
+                        style: const TextStyle(
+                          color: Color(0xFF92400E),
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF08A),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: const Text(
+                    'IDLE — CHECK DEVICE',
+                    style: TextStyle(
+                      color: Color(0xFF78350F),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
   /// Metric Card matching Screenshot 1 (Highest, Lowest, Average)
   Widget _buildTelemetryMetricCard({
     required String title,
@@ -1486,7 +1642,7 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
     final firstTime = readings.last.time;
     final lastTime = readings.first.time;
     final duration = readings.first.duration;
-    return '$firstTime – $lastTime ($duration duration) • Captured every 1m';
+    return '$firstTime - $lastTime ($duration duration) | Captured every 1m';
   }
 
   List<TelemetryDataPoint> _getBpmPointsForRange(String range, List<PatientReading> readings) {

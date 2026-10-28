@@ -129,6 +129,9 @@ class Patient {
   final List<PatientLogEvent> alertEvents;
   final List<PatientSessionHistory> sessionHistories;
   final String? avatarUrl;
+  final bool isDeviceIdle;
+  final String? lastReceivedTimestamp;
+  final DateTime? lastReceivedAt;
 
   const Patient({
     required this.id,
@@ -159,7 +162,24 @@ class Patient {
     required this.alertEvents,
     this.sessionHistories = const [],
     this.avatarUrl,
+    this.isDeviceIdle = false,
+    this.lastReceivedTimestamp,
+    this.lastReceivedAt,
   });
+
+  bool get isWaitingIdle => isDeviceIdle && (sessionStatus.toLowerCase() == 'waiting');
+
+  String get idleTimeAgoText {
+    if (lastReceivedAt == null) return '1m ago';
+    final diff = DateTime.now().difference(lastReceivedAt!);
+    if (diff.inMinutes <= 1) {
+      return '1m ago';
+    } else if (diff.inHours < 1) {
+      return '${diff.inMinutes}m ago';
+    } else {
+      return '${diff.inHours}h ${diff.inMinutes % 60}m ago';
+    }
+  }
 
   Patient copyWith({
     String? id,
@@ -190,6 +210,9 @@ class Patient {
     List<PatientLogEvent>? alertEvents,
     List<PatientSessionHistory>? sessionHistories,
     String? avatarUrl,
+    bool? isDeviceIdle,
+    String? lastReceivedTimestamp,
+    DateTime? lastReceivedAt,
   }) {
     return Patient(
       id: id ?? this.id,
@@ -220,6 +243,9 @@ class Patient {
       alertEvents: alertEvents ?? this.alertEvents,
       sessionHistories: sessionHistories ?? this.sessionHistories,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      isDeviceIdle: isDeviceIdle ?? this.isDeviceIdle,
+      lastReceivedTimestamp: lastReceivedTimestamp ?? this.lastReceivedTimestamp,
+      lastReceivedAt: lastReceivedAt ?? this.lastReceivedAt,
     );
   }
 }
