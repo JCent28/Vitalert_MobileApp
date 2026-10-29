@@ -111,7 +111,7 @@ class AlertNotificationService {
     }
   }
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({bool isBackgroundIsolate = false}) async {
     await _ensurePersistedIdsLoaded();
     if (_isInitialized) return;
 
@@ -136,18 +136,25 @@ class AlertNotificationService {
               AndroidFlutterLocalNotificationsPlugin>();
 
       if (androidPlugin != null) {
-        // Request runtime notification permission for Android 13+ (API 33+)
-        await androidPlugin.requestNotificationsPermission();
+        if (!isBackgroundIsolate) {
+          // Request runtime notification permission for Android 13+ (API 33+)
+          // Only request when an Activity is attached in the main UI isolate
+          try {
+            await androidPlugin.requestNotificationsPermission();
+          } catch (e) {
+            debugPrint('Notification permission request skipped/error: $e');
+          }
 
-        // Delete legacy channels so OS adopts fresh v4 audio configuration
-        try {
-          await androidPlugin.deleteNotificationChannel('vitalert_critical_channel');
-          await androidPlugin.deleteNotificationChannel('vitalert_critical_channel_v2');
-          await androidPlugin.deleteNotificationChannel('vitalert_critical_channel_v3');
-          await androidPlugin.deleteNotificationChannel('vitalert_warning_channel');
-          await androidPlugin.deleteNotificationChannel('vitalert_warning_channel_v2');
-          await androidPlugin.deleteNotificationChannel('vitalert_warning_channel_v3');
-        } catch (_) {}
+          // Delete legacy channels so OS adopts fresh v4 audio configuration
+          try {
+            await androidPlugin.deleteNotificationChannel('vitalert_critical_channel');
+            await androidPlugin.deleteNotificationChannel('vitalert_critical_channel_v2');
+            await androidPlugin.deleteNotificationChannel('vitalert_critical_channel_v3');
+            await androidPlugin.deleteNotificationChannel('vitalert_warning_channel');
+            await androidPlugin.deleteNotificationChannel('vitalert_warning_channel_v2');
+            await androidPlugin.deleteNotificationChannel('vitalert_warning_channel_v3');
+          } catch (_) {}
+        }
 
         // 1. Critical Channel (Max Importance, Screen Wake, Alarm Category, Pulsating Vibration, Custom Audio)
         final AndroidNotificationChannel criticalChannel =
@@ -189,7 +196,7 @@ class AlertNotificationService {
       }
 
       _isInitialized = true;
-      debugPrint('AlertNotificationService initialized successfully with channel v4.');
+      debugPrint('AlertNotificationService initialized successfully with channel v4 (background=$isBackgroundIsolate).');
     } catch (e) {
       debugPrint('Notification init error: $e');
     }
@@ -209,17 +216,22 @@ class AlertNotificationService {
     // Filter unacknowledged alerts (sorted newest first by timestamp, falling back to key)
     final unacknowledged = alerts.where((a) => !a.isAcknowledged).toList()
       ..sort(AlertItem.compareNewestFirst);
+    final acknowledgedIds = alerts.where((a) => a.isAcknowledged).map((a) => a.id);
 
-    // 1. On Initial App Launch: do not flood with all past alerts
+    // 1. On Initial App Launch: do not flood with all past alerts, but ensure the latest active unacknowledged alert notifies
     if (!_hasPerformedInitialSync) {
       _hasPerformedInitialSync = true;
 
-      // Mark all existing alerts in the database as seen so old history is never spammed
-      await markAlertsBatch(alerts.map((a) => a.id));
+      // Always mark acknowledged alerts as seen
+      await markAlertsBatch(acknowledgedIds);
 
-      // If there is an active unacknowledged alert, only notify for the single latest one if not already notified
       if (unacknowledged.isNotEmpty) {
         final latest = unacknowledged.first;
+        // Mark older unacknowledged alerts as seen so we don't spam multiple notifications at once
+        if (unacknowledged.length > 1) {
+          await markAlertsBatch(unacknowledged.skip(1).map((a) => a.id));
+        }
+        // Notify for the single latest active alert if it hasn't been notified yet
         if (!await isAlertNotified(latest.id)) {
           await showAlertNotification(latest);
         }
@@ -235,11 +247,16 @@ class AlertNotificationService {
       }
     }
 
-    // Mark all current alerts as seen in the deduplication store
-    await markAlertsBatch(alerts.map((a) => a.id));
+    // Mark acknowledged alerts and older new alerts as seen BEFORE showing notification
+    // Note: Do NOT mark `newAlerts.first` before calling `showAlertNotification`,
+    // otherwise `showAlertNotification`'s `isAlertNotified` guard will skip it!
+    await markAlertsBatch(acknowledgedIds);
 
     if (newAlerts.isNotEmpty) {
       newAlerts.sort(AlertItem.compareNewestFirst);
+      if (newAlerts.length > 1) {
+        await markAlertsBatch(newAlerts.skip(1).map((a) => a.id));
+      }
       await showAlertNotification(newAlerts.first);
     }
   }
@@ -378,6 +395,25 @@ class AlertNotificationService {
       timestamp: DateTime.now().millisecondsSinceEpoch,
     );
     await showAlertNotification(testAlert);
+  }
+
+  /// Dispatches a test alarm notification after a delay (e.g. 5 seconds) so the nurse can
+  /// minimize, close, or lock the app and verify background notification & alarm sound delivery.
+  static Future<void> triggerDelayedBackgroundTestAlert({
+    required bool isCritical,
+    Duration delay = const Duration(seconds: 5),
+  }) async {
+    Future.delayed(delay, () async {
+      // Also notify the background task isolate to trigger if running
+      try {
+        FlutterForegroundTask.sendDataToTask({
+          'type': 'trigger_test_alert',
+          'isCritical': isCritical,
+        });
+      } catch (_) {}
+
+      await triggerTestAlertSound(isCritical: isCritical);
+    });
   }
 
   @visibleForTesting

@@ -11,7 +11,7 @@ import '../services/firebase_realtime_service.dart';
 import '../services/foreground_service_manager.dart';
 import '../services/session_storage_service.dart';
 
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final FirebaseRealtimeService _rtdbService = FirebaseRealtimeService();
   StreamSubscription? _patientsSub;
   StreamSubscription? _alertsSub;
@@ -19,6 +19,7 @@ class AppState extends ChangeNotifier {
 
   bool _isLoggedIn = false;
   bool _isRestoringSession = true; // true while reading saved session from disk
+  bool _isAppInForeground = true;
   UserModel? _currentUser;
 
   int _currentTabIndex = 0;
@@ -50,9 +51,16 @@ class AppState extends ChangeNotifier {
   List<DeviceModel> _devices = [];
 
   AppState() {
+    WidgetsBinding.instance.addObserver(this);
     _initData();
     _bindFirebase();
     _restoreSession();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppInForeground = (state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive);
   }
 
   /// Reads the previously saved login session from disk.
@@ -102,8 +110,10 @@ class AppState extends ChangeNotifier {
 
     _alertsSub = _rtdbService.alertsStream.listen((liveAlerts) {
       _alerts = liveAlerts;
-      // Do NOT trigger alert notifications on a logged-out phone
-      if (_isLoggedIn) {
+      // Do NOT trigger alert notifications on a logged-out phone,
+      // and when backgrounded/paused let the ForegroundService isolate handle notifications
+      // so the UI isolate does not swallow alert IDs while suspended.
+      if (_isLoggedIn && _isAppInForeground) {
         AlertNotificationService.processLiveAlerts(liveAlerts);
       }
       notifyListeners();
@@ -540,6 +550,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _patientsSub?.cancel();
     _alertsSub?.cancel();
     _devicesSub?.cancel();

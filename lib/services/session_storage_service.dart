@@ -25,10 +25,13 @@ class SessionStorageService {
     await prefs.setString(_keyStatus, status);
   }
 
-  /// Reads the session from disk on app startup.
+  /// Reads the session from disk on app startup or background service poll.
   /// Returns a map of user fields, or null if no saved session exists.
   static Future<Map<String, String>?> loadSession() async {
     final prefs = await SharedPreferences.getInstance();
+    try {
+      await prefs.reload();
+    } catch (_) {}
     final isLoggedIn = prefs.getBool(_keyIsLoggedIn) ?? false;
     if (!isLoggedIn) return null;
 

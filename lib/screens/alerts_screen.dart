@@ -103,6 +103,20 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         ),
                       ),
                     );
+                  } else if (val == 'background_test') {
+                    AlertNotificationService.triggerDelayedBackgroundTestAlert(
+                      isCritical: true,
+                      delay: const Duration(seconds: 5),
+                    );
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Background Alert scheduled in 5s! Minimize or lock your phone now to test.',
+                        ),
+                        duration: Duration(seconds: 5),
+                      ),
+                    );
                   } else if (val == 'stop') {
                     AlertAudioService.stopSound();
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -132,6 +146,16 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         Icon(Icons.notifications_active_outlined, color: AppColors.warningAmber, size: 18),
                         SizedBox(width: 8),
                         Text('Test Warning Sound'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'background_test',
+                    child: Row(
+                      children: [
+                        Icon(Icons.timer_outlined, color: AppColors.primary, size: 18),
+                        SizedBox(width: 8),
+                        Text('Test Background Alert (5s Delay)'),
                       ],
                     ),
                   ),

@@ -20,7 +20,7 @@ class VitalertTaskHandler extends TaskHandler {
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     debugPrint('VitalertTaskHandler onStart');
-    await AlertNotificationService.initialize();
+    await AlertNotificationService.initialize(isBackgroundIsolate: true);
   }
 
   @override
@@ -51,7 +51,7 @@ class VitalertTaskHandler extends TaskHandler {
         });
 
         // Delegate to unified AlertNotificationService with shared deduplication
-        await AlertNotificationService.initialize();
+        await AlertNotificationService.initialize(isBackgroundIsolate: true);
         await AlertNotificationService.processLiveAlerts(list);
       }
     } catch (e) {
@@ -61,10 +61,17 @@ class VitalertTaskHandler extends TaskHandler {
 
   @override
   void onReceiveData(Object data) {
-    if (data is Map && data['type'] == 'alert_notified') {
-      final id = data['id'];
-      if (id is String && id.isNotEmpty) {
-        AlertNotificationService.recordNotifiedIdInMemory(id);
+    if (data is Map) {
+      if (data['type'] == 'alert_notified') {
+        final id = data['id'];
+        if (id is String && id.isNotEmpty) {
+          AlertNotificationService.recordNotifiedIdInMemory(id);
+        }
+      } else if (data['type'] == 'trigger_test_alert') {
+        final isCritical = data['isCritical'] == true;
+        AlertNotificationService.initialize(isBackgroundIsolate: true).then((_) {
+          AlertNotificationService.triggerTestAlertSound(isCritical: isCritical);
+        });
       }
     }
   }
@@ -156,6 +163,7 @@ class ForegroundServiceManager {
       }
 
       final startRes = await FlutterForegroundTask.startService(
+        serviceId: 256,
         notificationTitle: '🩺 Vitalert Clinical Monitor',
         notificationText: 'Live patient telemetry active (24/7 Safety)',
         callback: startCallback,

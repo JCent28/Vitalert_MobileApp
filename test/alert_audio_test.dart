@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vitalert/models/alert_item.dart';
 import 'package:vitalert/services/alert_audio_service.dart';
 import 'package:vitalert/services/alert_notification_service.dart';
+import 'package:vitalert/services/session_storage_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -92,6 +93,61 @@ void main() {
       await AlertNotificationService.dismissAlert('test_alert_001', patientId: 'patient_001');
       expect(AlertAudioService.isPlaying, isFalse);
       expect(AlertAudioService.currentPlayingType, isNull);
+    });
+
+    test('processLiveAlerts does not pre-mark latest unacknowledged alert before showAlertNotification', () async {
+      final alerts = [
+        AlertItem(
+          id: 'bg_alert_101',
+          patientId: 'patient_01',
+          patientName: 'Test Patient',
+          chairLocation: 'Chair 1',
+          wardArea: 'Station 1',
+          severity: AlertSeverity.critical,
+          title: 'CRITICAL ALERT',
+          message: 'SpO2 dropped to 86%',
+          timeString: '10:15',
+          timestamp: 1700000100,
+          isAcknowledged: false,
+        ),
+      ];
+
+      // 1. Initial sync should notify the single latest unacknowledged alert
+      await AlertNotificationService.processLiveAlerts(alerts);
+      expect(await AlertNotificationService.isAlertNotified('bg_alert_101'), isTrue);
+
+      // 2. Subsequent real-time poll with a brand new alert should also notify it (not skip due to pre-marking)
+      final alertsWithNew = [
+        ...alerts,
+        AlertItem(
+          id: 'bg_alert_102',
+          patientId: 'patient_01',
+          patientName: 'Test Patient',
+          chairLocation: 'Chair 1',
+          wardArea: 'Station 1',
+          severity: AlertSeverity.critical,
+          title: 'CRITICAL ALERT',
+          message: 'SpO2 dropped to 84%',
+          timeString: '10:16',
+          timestamp: 1700000200,
+          isAcknowledged: false,
+        ),
+      ];
+      await AlertNotificationService.processLiveAlerts(alertsWithNew);
+      expect(await AlertNotificationService.isAlertNotified('bg_alert_102'), isTrue);
+    });
+
+    test('SessionStorageService.loadSession reloads persisted session across isolates', () async {
+      await SessionStorageService.saveSession(
+        staffId: 'SN-001',
+        name: 'Nurse Joy',
+        role: 'Staff Nurse',
+        status: 'Active',
+      );
+      final loaded = await SessionStorageService.loadSession();
+      expect(loaded, isNotNull);
+      expect(loaded!['staffId'], equals('SN-001'));
+      expect(loaded['status'], equals('Active'));
     });
   });
 }
