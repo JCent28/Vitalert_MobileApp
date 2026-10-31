@@ -56,7 +56,9 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
     final criticalAlertsCount = patient.alertEvents.where((e) => e.severity == AlertSeverity.critical).length;
     final warningAlertsCount = patient.alertEvents.where((e) => e.severity == AlertSeverity.warning).length;
     final infoAlertsCount = patient.alertEvents.where((e) => e.severity == AlertSeverity.info).length;
-    final totalAlerts = patient.alertEvents.length;
+    final totalAlerts = patient.sessionAlertCount > 0
+        ? patient.sessionAlertCount
+        : patient.alertEvents.length;
 
     final isVerySmall = context.isVerySmallPhone;
     final isSmall = context.isSmallPhone;
@@ -659,6 +661,8 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
             criticalCount: criticalAlertsCount,
             warningCount: warningAlertsCount,
             infoCount: infoAlertsCount,
+            isCounterRed: patient.isCounterRed,
+            escalationReason: patient.escalationReason,
             lastAlertText: patient.alertEvents.isNotEmpty
                 ? 'Triggered at ${patient.alertEvents.first.time}'
                 : 'None',
@@ -1481,6 +1485,7 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
   }
 
   /// Alerts Summary Card matching Screenshot 2 (TOTAL ALERTS, Critical, Warning, Info)
+  /// and Alert-Persistence-Flow Part 5 (Amber for 1-2 alerts, Red + "Check the patient" for 3+ or 60s unresolved).
   Widget _buildAlertsSummaryCard({
     required int totalAlerts,
     required int criticalCount,
@@ -1488,7 +1493,15 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
     required int infoCount,
     required String lastAlertText,
     required VoidCallback onTap,
+    bool isCounterRed = false,
+    String? escalationReason,
   }) {
+    final counterColor = isCounterRed
+        ? const Color(0xFFB3261E)
+        : (totalAlerts > 0 ? const Color(0xFFD97706) : const Color(0xFF64748B));
+    final iconBgColor = isCounterRed ? const Color(0xFFFCE8E6) : const Color(0xFFFFFBEB);
+    final iconFgColor = isCounterRed ? const Color(0xFFB3261E) : const Color(0xFFD97706);
+
     return Builder(
       builder: (context) {
         final isVerySmall = context.isVerySmallPhone;
@@ -1500,7 +1513,10 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+              border: Border.all(
+                color: isCounterRed ? const Color(0xFFFAD2CF) : const Color(0xFFF1F5F9),
+                width: 1.5,
+              ),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x06000000),
@@ -1518,12 +1534,16 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                     Container(
                       width: 36,
                       height: 36,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFFFBEB),
+                      decoration: BoxDecoration(
+                        color: iconBgColor,
                         shape: BoxShape.circle,
                       ),
-                      child: const Center(
-                        child: Icon(Icons.notifications_none_rounded, size: 18, color: Color(0xFFD97706)),
+                      child: Center(
+                        child: Icon(
+                          isCounterRed ? Icons.warning_amber_rounded : Icons.notifications_none_rounded,
+                          size: 18,
+                          color: iconFgColor,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1564,10 +1584,10 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                             alignment: Alignment.centerLeft,
                             child: Text(
                               '$totalAlerts',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFFD97706),
+                                color: counterColor,
                               ),
                             ),
                           ),
@@ -1608,6 +1628,46 @@ class _PatientLogScreenState extends State<PatientLogScreen> {
                     ),
                   ],
                 ),
+                if (isCounterRed && escalationReason != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFCE8E6),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFAD2CF)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.priority_high_rounded, size: 13, color: Color(0xFFB3261E)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Check the patient',
+                              style: TextStyle(
+                                color: Color(0xFFB3261E),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          escalationReason,
+                          style: const TextStyle(
+                            color: Color(0xFF8C1D18),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 const Divider(color: Color(0xFFF8FAFC), height: 1),
                 const SizedBox(height: 10),

@@ -132,6 +132,10 @@ class Patient {
   final bool isDeviceIdle;
   final String? lastReceivedTimestamp;
   final DateTime? lastReceivedAt;
+  final int sessionAlertCount;
+  final int consecutiveGoodReadings;
+  final DateTime? badReadingSince;
+  final bool hasUnresolved60sAlert;
 
   const Patient({
     required this.id,
@@ -165,9 +169,27 @@ class Patient {
     this.isDeviceIdle = false,
     this.lastReceivedTimestamp,
     this.lastReceivedAt,
+    this.sessionAlertCount = 0,
+    this.consecutiveGoodReadings = 0,
+    this.badReadingSince,
+    this.hasUnresolved60sAlert = false,
   });
 
   bool get isWaitingIdle => isDeviceIdle && (sessionStatus.toLowerCase() == 'waiting');
+
+  /// Part 5: Counter turns red when it reaches 3 OR when an alert has sat unresolved for >= 60 seconds.
+  bool get isCounterRed => sessionAlertCount >= 3 || hasUnresolved60sAlert;
+
+  /// Part 5: Wording underneath "Check the patient" explaining which escalation path triggered.
+  String? get escalationReason {
+    if (sessionAlertCount >= 3) {
+      return '$sessionAlertCount alerts this session.';
+    }
+    if (hasUnresolved60sAlert) {
+      return 'Alert unresolved for over a minute.';
+    }
+    return null;
+  }
 
   String get idleTimeAgoText {
     if (lastReceivedAt == null) return '1m ago';
@@ -213,6 +235,10 @@ class Patient {
     bool? isDeviceIdle,
     String? lastReceivedTimestamp,
     DateTime? lastReceivedAt,
+    int? sessionAlertCount,
+    int? consecutiveGoodReadings,
+    DateTime? badReadingSince,
+    bool? hasUnresolved60sAlert,
   }) {
     return Patient(
       id: id ?? this.id,
@@ -246,6 +272,10 @@ class Patient {
       isDeviceIdle: isDeviceIdle ?? this.isDeviceIdle,
       lastReceivedTimestamp: lastReceivedTimestamp ?? this.lastReceivedTimestamp,
       lastReceivedAt: lastReceivedAt ?? this.lastReceivedAt,
+      sessionAlertCount: sessionAlertCount ?? this.sessionAlertCount,
+      consecutiveGoodReadings: consecutiveGoodReadings ?? this.consecutiveGoodReadings,
+      badReadingSince: badReadingSince ?? this.badReadingSince,
+      hasUnresolved60sAlert: hasUnresolved60sAlert ?? this.hasUnresolved60sAlert,
     );
   }
 }

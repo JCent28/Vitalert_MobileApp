@@ -15,6 +15,7 @@ class AlertNotificationService {
       FlutterLocalNotificationsPlugin();
 
   static final Set<String> _notifiedAlertIds = {};
+  static final Map<String, AlertSeverity> _notifiedAlertSeverities = {};
   static bool _isInitialized = false;
   static bool _hasPerformedInitialSync = false;
   static bool _isStoreLoaded = false;
@@ -79,7 +80,7 @@ class AlertNotificationService {
     final payload = <String, dynamic>{
       'type': 'alert_notified',
       'id': alertId,
-      if (severity != null) 'severity': severity,
+      'severity': ?severity,
     };
 
     // Broadcast to the other isolate (Task <-> Main)
@@ -239,11 +240,64 @@ class AlertNotificationService {
       return;
     }
 
-    // 2. During Real-Time Streaming: check for newly triggered unacknowledged alerts that were NOT yet notified
+    // 2. During Real-Time Streaming: check for newly triggered unacknowledged alerts,
+    // severity upgrades (Warning -> Critical), or 60-second unresolved escalations (Part 5 & Part 6)
     final List<AlertItem> newAlerts = [];
+    final now = DateTime.now();
+
     for (final a in unacknowledged) {
+      final prevSeverity = _notifiedAlertSeverities[a.id];
+      final upgradedKey = '${a.id}_upgraded_critical';
+      final escalated60sKey = '${a.id}_escalated_60s';
+
       if (!await isAlertNotified(a.id)) {
         newAlerts.add(a);
+      } else if (a.severity == AlertSeverity.critical &&
+          prevSeverity == AlertSeverity.warning &&
+          !await isAlertNotified(upgradedKey)) {
+        // Part 2 & Part 6: Existing Warning alert upgraded to Critical -> play second chime immediately
+        await markAlertNotified(upgradedKey, severity: AlertSeverity.critical.name);
+        _notifiedAlertSeverities[a.id] = AlertSeverity.critical;
+        await showAlertNotification(a, forceNotify: true);
+      } else if (a.isUnresolvedOver60s(now: now) &&
+          !await isAlertNotified(escalated60sKey)) {
+        // Part 5: Unresolved for >= 60 seconds -> play second chime and show "Check the patient"
+        await markAlertNotified(escalated60sKey, severity: AlertSeverity.critical.name);
+        await showAlertNotification(
+          AlertItem(
+            id: a.id,
+            patientId: a.patientId,
+            patientName: a.patientName,
+            chairLocation: a.chairLocation,
+            wardArea: a.wardArea,
+            severity: AlertSeverity.critical,
+            title: 'CHECK THE PATIENT',
+            message: 'Check the patient — Alert unresolved for over a minute (${a.message})',
+            timeString: a.timeString,
+            hrBpm: a.hrBpm,
+            spO2: a.spO2,
+            isEscalated60s: true,
+            timestamp: a.timestamp,
+            session: a.session,
+          ),
+          forceNotify: true,
+        );
+      }
+    }
+
+    // Also check if any patient has reached >= 3 unacknowledged alerts in this session (Part 5 Path B)
+    final Map<String, List<AlertItem>> byPatient = {};
+    for (final a in unacknowledged) {
+      if (a.patientId.isNotEmpty) {
+        byPatient.putIfAbsent(a.patientId, () => []).add(a);
+      }
+    }
+    for (final entry in byPatient.entries) {
+      if (entry.value.length >= 3) {
+        final latestThreeKey = '${entry.key}_episode3_${entry.value.first.id}';
+        if (!await isAlertNotified(latestThreeKey)) {
+          await markAlertNotified(latestThreeKey, severity: AlertSeverity.critical.name);
+        }
       }
     }
 
@@ -254,22 +308,51 @@ class AlertNotificationService {
 
     if (newAlerts.isNotEmpty) {
       newAlerts.sort(AlertItem.compareNewestFirst);
+      for (final a in newAlerts) {
+        _notifiedAlertSeverities[a.id] = a.severity;
+      }
       if (newAlerts.length > 1) {
         await markAlertsBatch(newAlerts.skip(1).map((a) => a.id));
       }
-      await showAlertNotification(newAlerts.first);
+      final topAlert = newAlerts.first;
+      final patientUnackCount = byPatient[topAlert.patientId]?.length ?? 1;
+      if (patientUnackCount >= 3) {
+        await showAlertNotification(
+          AlertItem(
+            id: topAlert.id,
+            patientId: topAlert.patientId,
+            patientName: topAlert.patientName,
+            chairLocation: topAlert.chairLocation,
+            wardArea: topAlert.wardArea,
+            severity: AlertSeverity.critical,
+            title: 'CHECK THE PATIENT',
+            message: 'Check the patient — $patientUnackCount alerts this session (${topAlert.message})',
+            timeString: topAlert.timeString,
+            hrBpm: topAlert.hrBpm,
+            spO2: topAlert.spO2,
+            timestamp: topAlert.timestamp,
+            session: topAlert.session,
+          ),
+        );
+      } else {
+        await showAlertNotification(topAlert);
+      }
     }
   }
 
   /// Displays the heads-up notification with screen wake
-  static Future<void> showAlertNotification(AlertItem alert) async {
-    // Cross-isolate deduplication guard: if already notified, skip
-    if (await isAlertNotified(alert.id)) {
+  static Future<void> showAlertNotification(
+    AlertItem alert, {
+    bool forceNotify = false,
+  }) async {
+    // Cross-isolate deduplication guard: if already notified, skip (unless forceNotify for upgrade/escalation)
+    if (!forceNotify && await isAlertNotified(alert.id)) {
       debugPrint('AlertNotificationService: skipping already notified alert ${alert.id}');
       return;
     }
 
     // Record as notified across memory, storage, and cross-isolate ports
+    _notifiedAlertSeverities[alert.id] = alert.severity;
     await markAlertNotified(alert.id, severity: alert.severity.name);
 
     final isCritical = alert.severity == AlertSeverity.critical;
@@ -419,6 +502,7 @@ class AlertNotificationService {
   @visibleForTesting
   static void resetStateForTesting() {
     _notifiedAlertIds.clear();
+    _notifiedAlertSeverities.clear();
     _isInitialized = false;
     _hasPerformedInitialSync = false;
     _isStoreLoaded = false;

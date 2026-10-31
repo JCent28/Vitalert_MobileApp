@@ -791,8 +791,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final isCritical = patient.status == AlertSeverity.critical;
     final isWarning = patient.status == AlertSeverity.warning;
+    final hasAlertCount = patient.sessionAlertCount > 0 || patient.isCounterRed;
+    final isCounterRed = patient.isCounterRed;
 
-    return Container(
+    final statusPill = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: isCritical
@@ -826,6 +828,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
           letterSpacing: 0.3,
         ),
       ),
+    );
+
+    if (!hasAlertCount) return statusPill;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        statusPill,
+        const SizedBox(height: 3),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: isCounterRed ? const Color(0xFFFCE8E6) : const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isCounterRed ? const Color(0xFFFAD2CF) : const Color(0xFFFDE68A),
+            ),
+          ),
+          child: Text(
+            '${patient.sessionAlertCount} alert${patient.sessionAlertCount == 1 ? '' : 's'}${patient.hasUnresolved60sAlert ? ' • 60s!' : ''}',
+            style: TextStyle(
+              color: isCounterRed ? const Color(0xFFB3261E) : const Color(0xFFB45309),
+              fontSize: 8.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

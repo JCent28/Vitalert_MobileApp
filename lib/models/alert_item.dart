@@ -17,6 +17,8 @@ class AlertItem {
   final int? hrBpm;
   final int? spO2;
   bool isAcknowledged;
+  bool isRecovered;
+  bool isEscalated60s;
   String? acknowledgedBy;
   String? acknowledgedById;
   String? acknowledgedAt;
@@ -37,6 +39,8 @@ class AlertItem {
     this.hrBpm,
     this.spO2,
     this.isAcknowledged = false,
+    this.isRecovered = false,
+    this.isEscalated60s = false,
     this.acknowledgedBy,
     this.acknowledgedById,
     this.acknowledgedAt,
@@ -45,6 +49,23 @@ class AlertItem {
     this.session,
   });
 
+  /// Returns the normalized timestamp in milliseconds since epoch, or null if unavailable.
+  int? get timestampMs {
+    final ts = timestamp;
+    if (ts == null || ts <= 0) return null;
+    return ts < 10000000000 ? ts * 1000 : ts;
+  }
+
+  /// Returns true if this alert is unacknowledged and has been open for at least 60 seconds.
+  bool isUnresolvedOver60s({DateTime? now}) {
+    if (isAcknowledged) return false;
+    if (isEscalated60s) return true;
+    final ms = timestampMs;
+    if (ms == null) return false;
+    final currentMs = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    return (currentMs - ms) >= 60000;
+  }
+
   factory AlertItem.fromMap(String id, Map<String, dynamic> map) {
     final sevStr = (map['severity'] ?? 'Warning').toString().toLowerCase();
     final severity = sevStr == 'critical'
@@ -52,7 +73,14 @@ class AlertItem {
         : (sevStr == 'warning' ? AlertSeverity.warning : AlertSeverity.info);
 
     final statusStr = (map['status'] ?? 'Active').toString();
-    final isAcknowledged = statusStr.toLowerCase() == 'acknowledged';
+    final lowerStatus = statusStr.toLowerCase();
+    final isAcknowledged = lowerStatus == 'acknowledged' || map['is_acknowledged'] == true;
+    final isRecovered = map['recovered'] == true ||
+        map['is_recovered'] == true ||
+        lowerStatus == 'recovered';
+    final isEscalated60s = map['escalated_60s'] == true ||
+        map['is_escalated'] == true ||
+        map['unresolved_60s'] == true;
 
     int? bpm;
     int? spo2;
@@ -110,6 +138,8 @@ class AlertItem {
       hrBpm: bpm,
       spO2: spo2,
       isAcknowledged: isAcknowledged,
+      isRecovered: isRecovered,
+      isEscalated60s: isEscalated60s,
       acknowledgedBy: map['acknowledged_by']?.toString(),
       acknowledgedById: map['acknowledged_by_id']?.toString(),
       acknowledgedAt: map['acknowledged_at']?.toString(),

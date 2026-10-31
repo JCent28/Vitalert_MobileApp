@@ -29,6 +29,160 @@ class FirebaseRealtimeService {
   String? lastAuthError;
 
   final Map<String, _DeviceTelemetryTracker> _deviceTrackers = {};
+  final Map<String, _PatientAlertPersistenceTracker> _persistenceTrackers = {};
+
+  /// Part 2: Evaluates a single reading for a patient using the 7-step Alert Persistence Flow:
+  /// 1. If BPM == 0 or SpO2 == 0, ignore (lifted finger).
+  /// 2. Classify reading (Normal, Warning, Critical).
+  /// 3. Bad reading -> reset goodReadingsCount = 0.
+  /// 4. Bad reading & timer not running -> start 15s timer (badSince). Keep running if Warning -> Critical.
+  /// 5. Elapsed >= 15s -> open alert & increment sessionAlertCount (+1). If Warning alert open & Critical reading arrives -> upgrade immediately.
+  /// 6. Good reading -> increment goodReadingsCount (+1). Below 3 -> no change.
+  /// 7. 3 good readings in a row -> stop timer; auto-close Warning alert or mark Critical alert as recovered.
+  AlertPersistenceOutcome evaluatePatientReadingPersistence({
+    required String patientId,
+    required int bpm,
+    required int spO2,
+    required DateTime now,
+  }) {
+    final tracker = _persistenceTrackers.putIfAbsent(
+      patientId,
+      () => _PatientAlertPersistenceTracker(),
+    );
+
+    // Check if an existing unacknowledged alert has sat unresolved for >= 60 seconds
+    bool newlyEscalated60s = false;
+    if (tracker.activeAlertOpen &&
+        tracker.activeAlertCreatedAt != null &&
+        !tracker.hasEscalated60s) {
+      if (now.difference(tracker.activeAlertCreatedAt!).inSeconds >= 60) {
+        tracker.hasEscalated60s = true;
+        newlyEscalated60s = true;
+      }
+    }
+
+    // Step 1: Is this a real reading? If BPM or SpO2 is 0, stop here.
+    if (bpm <= 0 || spO2 <= 0) {
+      return tracker.toOutcome(newlyEscalated60s: newlyEscalated60s);
+    }
+
+    // Step 2: Label it (Normal, Warning, or Critical)
+    final severity = VitalThresholds.evaluateVitals(bpm, spO2);
+    final isBad = severity == AlertSeverity.warning || severity == AlertSeverity.critical;
+
+    if (isBad) {
+      // Step 3: Bad reading? Set the good-reading count back to 0.
+      tracker.goodReadingsCount = 0;
+
+      if (severity == AlertSeverity.critical) {
+        tracker.sawCriticalDuringWait = true;
+      }
+
+      // Immediate Critical Upgrade: If a patient already has an open Warning alert and a Critical reading comes in,
+      // upgrade the alert to Critical right away without starting a new 15-second timer.
+      if (tracker.activeAlertOpen &&
+          tracker.activeAlertSeverity == AlertSeverity.warning &&
+          severity == AlertSeverity.critical) {
+        tracker.activeAlertSeverity = AlertSeverity.critical;
+        tracker.activeAlertRecovered = false;
+        return tracker.toOutcome(
+          upgradedToCritical: true,
+          newlyEscalated60s: newlyEscalated60s,
+        );
+      }
+
+      // If an active Critical alert was marked recovered, a new bad reading un-recovers it
+      if (tracker.activeAlertOpen && tracker.activeAlertRecovered) {
+        tracker.activeAlertRecovered = false;
+      }
+
+      // Step 4: Bad reading, and the timer is not running? Start it.
+      tracker.badSince ??= now;
+
+      // Step 5: Has it been bad for 15 seconds?
+      final elapsedSeconds = now.difference(tracker.badSince!).inSeconds;
+      if (elapsedSeconds >= 15 && !tracker.activeAlertOpen) {
+        final effectiveSeverity = tracker.sawCriticalDuringWait
+            ? AlertSeverity.critical
+            : severity;
+        tracker.activeAlertOpen = true;
+        tracker.activeAlertSeverity = effectiveSeverity;
+        tracker.activeAlertRecovered = false;
+        tracker.activeAlertCreatedAt = now;
+        tracker.hasEscalated60s = false;
+        tracker.sessionAlertCount += 1;
+
+        return tracker.toOutcome(
+          newlyTriggeredAlert: true,
+          triggeredSeverity: effectiveSeverity,
+          sawCriticalSpike: tracker.sawCriticalDuringWait && severity != AlertSeverity.critical,
+          newlyEscalated60s: newlyEscalated60s,
+        );
+      }
+
+      return tracker.toOutcome(newlyEscalated60s: newlyEscalated60s);
+    } else {
+      // Step 6: Good reading? Add 1 to the good-reading count.
+      tracker.goodReadingsCount += 1;
+
+      // Step 7: Three good readings in a row? Stop the timer and close/recover the alert.
+      if (tracker.goodReadingsCount >= 3) {
+        tracker.badSince = null;
+        tracker.sawCriticalDuringWait = false;
+
+        bool autoClosedWarning = false;
+        bool markedCriticalRecovered = false;
+
+        if (tracker.activeAlertOpen) {
+          if (tracker.activeAlertSeverity == AlertSeverity.warning) {
+            // A Warning closes by itself
+            tracker.activeAlertOpen = false;
+            tracker.activeAlertSeverity = null;
+            tracker.activeAlertCreatedAt = null;
+            tracker.hasEscalated60s = false;
+            autoClosedWarning = true;
+          } else if (tracker.activeAlertSeverity == AlertSeverity.critical) {
+            // A Critical is marked as recovered but stays open until a nurse confirms it
+            if (!tracker.activeAlertRecovered) {
+              tracker.activeAlertRecovered = true;
+              markedCriticalRecovered = true;
+            }
+          }
+        }
+
+        return tracker.toOutcome(
+          autoClosedWarning: autoClosedWarning,
+          markedCriticalRecovered: markedCriticalRecovered,
+          newlyEscalated60s: newlyEscalated60s,
+        );
+      }
+
+      return tracker.toOutcome(newlyEscalated60s: newlyEscalated60s);
+    }
+  }
+
+  /// Resets the persistence timer and session alert counter for a patient (e.g., on startSession, endSession, or nurse acknowledge).
+  void resetPatientAlertPersistence(String patientId, {bool clearActiveAlert = true}) {
+    final tracker = _persistenceTrackers[patientId];
+    if (tracker != null) {
+      tracker.sessionAlertCount = 0;
+      tracker.goodReadingsCount = 0;
+      tracker.badSince = null;
+      tracker.sawCriticalDuringWait = false;
+      tracker.hasEscalated60s = false;
+      if (clearActiveAlert) {
+        tracker.activeAlertOpen = false;
+        tracker.activeAlertSeverity = null;
+        tracker.activeAlertRecovered = false;
+        tracker.activeAlertCreatedAt = null;
+      }
+    }
+  }
+
+  @visibleForTesting
+  void clearPersistenceTrackersForTesting() {
+    _persistenceTrackers.clear();
+  }
 
   @visibleForTesting
   void simulateDeviceIdleForTesting(
@@ -564,10 +718,55 @@ class FirebaseRealtimeService {
               description: al.message,
               acknowledgementNote: al.isAcknowledged
                   ? 'Acknowledged by ${al.acknowledgedBy ?? "Nurse"} at ${al.acknowledgedAt ?? al.timeString}'
-                  : null,
+                  : (al.isRecovered ? 'Recovered (3 consecutive normal readings) — awaiting nurse confirmation' : null),
             ),
           );
         }
+
+        // Session Alert Counter & 60-Second Unresolved Escalation Evaluation (Parts 1-5)
+        final unacknowledgedPatientAlerts = pAlerts.where((a) => !a.isAcknowledged).toList();
+        final currentSessionAlerts = pAlerts.where((a) {
+          if (a.session == null || a.session!.isEmpty) return true;
+          final cleanAlertSession = a.session!.replaceAll(RegExp(r'[^0-9]'), '');
+          return cleanAlertSession.isEmpty || cleanAlertSession == displaySessionNum;
+        }).toList();
+
+        int? dbAlertCount;
+        if (pData['alert_count'] is num) {
+          dbAlertCount = (pData['alert_count'] as num).toInt();
+        } else if (pData['alert_count'] != null) {
+          dbAlertCount = int.tryParse(pData['alert_count'].toString());
+        }
+
+        final int goodReadingsFromDb = (pData['good_readings_count'] as num?)?.toInt() ?? 0;
+        DateTime? badSinceFromDb;
+        if (pData['bad_since'] != null) {
+          final rawBad = pData['bad_since'];
+          if (rawBad is num && rawBad > 0) {
+            final ms = rawBad < 10000000000 ? rawBad.toInt() * 1000 : rawBad.toInt();
+            badSinceFromDb = DateTime.fromMillisecondsSinceEpoch(ms);
+          } else if (rawBad is String && rawBad.isNotEmpty) {
+            badSinceFromDb = DateTime.tryParse(rawBad);
+          }
+        }
+
+        final nowForEval = DateTime.now();
+        final persistenceOutcome = evaluatePatientReadingPersistence(
+          patientId: patientId,
+          bpm: liveBpm,
+          spO2: liveSpO2,
+          now: nowForEval,
+        );
+
+        final int unackSessionCount = currentSessionAlerts.where((a) => !a.isAcknowledged).length;
+        final int resolvedSessionAlertCount = dbAlertCount ??
+            (unackSessionCount > 0
+                ? unackSessionCount
+                : persistenceOutcome.sessionAlertCount);
+
+        final bool hasUnresolved60s = pData['escalated_60s'] == true ||
+            persistenceOutcome.hasEscalated60s ||
+            unacknowledgedPatientAlerts.any((a) => a.isUnresolvedOver60s(now: nowForEval));
 
         // Inactivity Heartbeat Tracking
         bool isDeviceIdle = isExplicitIdle;
@@ -765,6 +964,12 @@ class FirebaseRealtimeService {
             isDeviceIdle: isDeviceIdle,
             lastReceivedTimestamp: lastReceivedTimestamp,
             lastReceivedAt: lastReceivedAt,
+            sessionAlertCount: resolvedSessionAlertCount,
+            consecutiveGoodReadings: goodReadingsFromDb > 0
+                ? goodReadingsFromDb
+                : persistenceOutcome.goodReadingsCount,
+            badReadingSince: badSinceFromDb ?? persistenceOutcome.badSince,
+            hasUnresolved60sAlert: hasUnresolved60s,
           ),
         );
       }
@@ -1097,7 +1302,8 @@ class FirebaseRealtimeService {
         body: jsonEncode(metaData),
       );
 
-      // 6. Update patient status to 'Ongoing' (matching web app)
+      // 6. Update patient status to 'Ongoing' and reset alert persistence timer & counter (Part 3 & Part 6)
+      resetPatientAlertPersistence(patientId);
       final patientPatch = <String, dynamic>{
         'session': formattedSession,
         'device': isPhysical ? deviceId : 'N/A',
@@ -1106,6 +1312,10 @@ class FirebaseRealtimeService {
         'start_time': timeStr,
         'snapshot_interval': 1,
         'stream_interval': 1,
+        'alert_count': 0,
+        'bad_since': null,
+        'good_readings_count': 0,
+        'escalated_60s': false,
       };
 
       final res = await patchFn(
@@ -1202,12 +1412,17 @@ class FirebaseRealtimeService {
         'last_updated': fullTimestamp,
       };
 
-      // 4. Update patient: status = Completed, device = N/A, write final_vitals
+      // 4. Update patient: status = Completed, device = N/A, write final_vitals, reset alert persistence & counter
+      resetPatientAlertPersistence(patientId);
       final patchData = <String, dynamic>{
         'status': 'Completed',
         'device': 'N/A',
         'final_vitals': finalVitals,
         'last_updated': fullTimestamp,
+        'alert_count': 0,
+        'bad_since': null,
+        'good_readings_count': 0,
+        'escalated_60s': false,
       };
       if (finalBpm > 0) patchData['bpm'] = finalBpm;
       if (finalSpo2 > 0) patchData['spo2'] = finalSpo2;
@@ -1395,11 +1610,21 @@ class FirebaseRealtimeService {
         body: patchBody,
       );
 
-      // 6. Patch history/{patient}/{session}/alerts/{alertId}
+      // 6. Patch history/{patient}/{session}/alerts/{alertId} and clear patient alert counter (Part 3 & Part 6)
       if (targetPatientId.isNotEmpty) {
+        resetPatientAlertPersistence(targetPatientId);
         await patchFn(
           Uri.parse('$databaseUrl/history/$targetPatientId/$targetSessionKey/alerts/$alertId.json'),
           body: patchBody,
+        );
+        await patchFn(
+          Uri.parse('$databaseUrl/patients/$targetPatientId.json'),
+          body: jsonEncode({
+            'alert_count': 0,
+            'bad_since': null,
+            'good_readings_count': 0,
+            'escalated_60s': false,
+          }),
         );
       }
 
@@ -1414,6 +1639,44 @@ class FirebaseRealtimeService {
       debugPrint('Acknowledge alert error: $e');
       return false;
     }
+  }
+
+  /// Acknowledges a grouped batch of alerts for a patient in one action and clears the patient's session alert counter.
+  Future<bool> acknowledgeAlertBatch({
+    required List<String> alertIds,
+    required String nurseName,
+    String? nurseId,
+    String? userRole,
+    String? patientId,
+    String? session,
+    String? time,
+    String? note,
+    http.Client? client,
+  }) async {
+    if (alertIds.isEmpty) return true;
+    lastAlertError = null;
+
+    if (userRole != null && userRole.trim().toLowerCase() == 'admin') {
+      lastAlertError = 'Admin accounts cannot acknowledge clinical alerts.';
+      return false;
+    }
+
+    bool allSucceeded = true;
+    for (final id in alertIds) {
+      final ok = await acknowledgeAlert(
+        alertId: id,
+        nurseName: nurseName,
+        nurseId: nurseId,
+        userRole: userRole,
+        patientId: patientId,
+        session: session,
+        time: time,
+        note: note,
+        client: client,
+      );
+      if (!ok) allSucceeded = false;
+    }
+    return allSucceeded;
   }
 
   // 8. Delete / Clear Acknowledged Alerts from Firebase RTDB
@@ -1577,4 +1840,79 @@ class _DeviceTelemetryTracker {
     required this.lastReceivedFormatted,
     this.isIdle = false,
   });
+}
+
+class AlertPersistenceOutcome {
+  final int sessionAlertCount;
+  final int goodReadingsCount;
+  final DateTime? badSince;
+  final bool activeAlertOpen;
+  final AlertSeverity? activeAlertSeverity;
+  final bool activeAlertRecovered;
+  final bool hasEscalated60s;
+  final bool newlyTriggeredAlert;
+  final AlertSeverity? triggeredSeverity;
+  final bool sawCriticalSpike;
+  final bool upgradedToCritical;
+  final bool autoClosedWarning;
+  final bool markedCriticalRecovered;
+  final bool newlyEscalated60s;
+
+  const AlertPersistenceOutcome({
+    required this.sessionAlertCount,
+    required this.goodReadingsCount,
+    required this.badSince,
+    required this.activeAlertOpen,
+    required this.activeAlertSeverity,
+    required this.activeAlertRecovered,
+    required this.hasEscalated60s,
+    this.newlyTriggeredAlert = false,
+    this.triggeredSeverity,
+    this.sawCriticalSpike = false,
+    this.upgradedToCritical = false,
+    this.autoClosedWarning = false,
+    this.markedCriticalRecovered = false,
+    this.newlyEscalated60s = false,
+  });
+
+  bool get isCounterRed => sessionAlertCount >= 3 || hasEscalated60s;
+}
+
+class _PatientAlertPersistenceTracker {
+  int sessionAlertCount = 0;
+  int goodReadingsCount = 0;
+  DateTime? badSince;
+  bool sawCriticalDuringWait = false;
+  bool activeAlertOpen = false;
+  AlertSeverity? activeAlertSeverity;
+  bool activeAlertRecovered = false;
+  DateTime? activeAlertCreatedAt;
+  bool hasEscalated60s = false;
+
+  AlertPersistenceOutcome toOutcome({
+    bool newlyTriggeredAlert = false,
+    AlertSeverity? triggeredSeverity,
+    bool sawCriticalSpike = false,
+    bool upgradedToCritical = false,
+    bool autoClosedWarning = false,
+    bool markedCriticalRecovered = false,
+    bool newlyEscalated60s = false,
+  }) {
+    return AlertPersistenceOutcome(
+      sessionAlertCount: sessionAlertCount,
+      goodReadingsCount: goodReadingsCount,
+      badSince: badSince,
+      activeAlertOpen: activeAlertOpen,
+      activeAlertSeverity: activeAlertSeverity,
+      activeAlertRecovered: activeAlertRecovered,
+      hasEscalated60s: hasEscalated60s,
+      newlyTriggeredAlert: newlyTriggeredAlert,
+      triggeredSeverity: triggeredSeverity,
+      sawCriticalSpike: sawCriticalSpike,
+      upgradedToCritical: upgradedToCritical,
+      autoClosedWarning: autoClosedWarning,
+      markedCriticalRecovered: markedCriticalRecovered,
+      newlyEscalated60s: newlyEscalated60s,
+    );
+  }
 }

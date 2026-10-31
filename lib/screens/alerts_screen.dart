@@ -477,6 +477,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   Future<void> _confirmDeleteAcknowledged(BuildContext context) async {
     final count = widget.state.acknowledgedAlerts.length;
+    final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -515,7 +516,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
       final success = await widget.state.deleteAcknowledgedAlerts();
       if (mounted) {
         setState(() => _isDeleting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text(
               success
@@ -530,18 +531,25 @@ class _AlertsScreenState extends State<AlertsScreen> {
     }
   }
 
-  Future<bool> _confirmAcknowledgeAlert(BuildContext context, AlertItem alert) async {
+  Future<bool> _confirmAcknowledgeAlertGroup(
+    BuildContext context,
+    List<AlertItem> groupAlerts,
+  ) async {
+    final first = groupAlerts.first;
+    final count = groupAlerts.length;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
-          children: const [
-            Icon(Icons.assignment_turned_in_outlined, color: Color(0xFF007D79), size: 22),
-            SizedBox(width: 8),
-            Text(
-              'Acknowledge Alert?',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+          children: [
+            const Icon(Icons.assignment_turned_in_outlined, color: Color(0xFF007D79), size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                count > 1 ? 'Acknowledge $count Alerts?' : 'Acknowledge Alert?',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -549,9 +557,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Are you sure you want to acknowledge this alert? This will record your attendance for this patient.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+            Text(
+              count > 1
+                  ? 'Are you sure you want to acknowledge all $count alerts for this patient? This will record your attendance and reset their session alert counter to 0.'
+                  : 'Are you sure you want to acknowledge this alert? This will record your attendance for this patient and reset their session alert counter to 0.',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
             ),
             const SizedBox(height: 12),
             Container(
@@ -567,7 +577,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '${alert.patientName} (${alert.chairLocation})',
+                      '${first.patientName} (${first.chairLocation})',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -679,7 +689,599 @@ class _AlertsScreenState extends State<AlertsScreen> {
       ];
     }
 
-    return filtered.map((alert) => _buildAlertCardItem(alert, isActive: true)).toList();
+    // Part 4: Group active alerts by patient, up to 3 alerts per card.
+    // Preserve patient appearance order (most recent alert's patient first),
+    // and order alerts inside each patient group chronologically (1, 2, 3...)
+    final Map<String, List<AlertItem>> groupedByPatient = {};
+    final List<String> patientOrder = [];
+    for (final alert in filtered) {
+      final key = alert.patientId.isNotEmpty
+          ? alert.patientId
+          : '${alert.patientName}_${alert.chairLocation}';
+      if (!groupedByPatient.containsKey(key)) {
+        groupedByPatient[key] = [];
+        patientOrder.add(key);
+      }
+      groupedByPatient[key]!.add(alert);
+    }
+
+    final List<Widget> cards = [];
+    for (final key in patientOrder) {
+      final patientAlerts = List<AlertItem>.from(groupedByPatient[key]!);
+      // Sort oldest-to-newest inside the patient's episode list so numbered rows 1, 2, 3 match episode order
+      patientAlerts.sort((a, b) => AlertItem.compareNewestFirst(b, a));
+      final totalPatientActiveAlerts = patientAlerts.length;
+
+      // Chunk into cards of at most 3 alerts (Part 4: "One card holds 3 alerts. Does the fourth alert start a second card?")
+      for (int i = 0; i < patientAlerts.length; i += 3) {
+        final end = (i + 3 < patientAlerts.length) ? i + 3 : patientAlerts.length;
+        final chunk = patientAlerts.sublist(i, end);
+        cards.add(
+          _buildGroupedActiveAlertCard(
+            chunk,
+            startIndexOffset: i,
+            totalPatientAlerts: totalPatientActiveAlerts,
+          ),
+        );
+      }
+    }
+
+    return cards;
+  }
+
+  /// Part 4 & Part 5: Grouped Active Alert Card holding 1 to 3 alerts for the same patient,
+  /// with solid Warning/Critical or 180deg vertical gradient left stripe and one Acknowledge button.
+  Widget _buildGroupedActiveAlertCard(
+    List<AlertItem> groupAlerts, {
+    required int startIndexOffset,
+    required int totalPatientAlerts,
+  }) {
+    final first = groupAlerts.first;
+    final hasCritical = groupAlerts.any((a) => a.severity == AlertSeverity.critical);
+    final hasWarning = groupAlerts.any((a) => a.severity == AlertSeverity.warning);
+    final isMixed = hasCritical && hasWarning;
+    final anyRecovered = groupAlerts.any((a) => a.isRecovered);
+    final now = DateTime.now();
+    final anyUnresolved60s = groupAlerts.any((a) => a.isUnresolvedOver60s(now: now));
+
+    // Look up patient state for session alert counter & escalation reason
+    final matchingPatient = widget.state.patients
+        .where((p) => p.id == first.patientId)
+        .firstOrNull;
+    final effectiveCounter = matchingPatient != null &&
+            matchingPatient.sessionAlertCount > totalPatientAlerts
+        ? matchingPatient.sessionAlertCount
+        : totalPatientAlerts;
+    final isCounterRed = effectiveCounter >= 3 ||
+        anyUnresolved60s ||
+        (matchingPatient?.isCounterRed ?? false);
+
+    String? escalationSubtext;
+    if (effectiveCounter >= 3) {
+      escalationSubtext = '$effectiveCounter alerts this session.';
+    } else if (anyUnresolved60s || (matchingPatient?.hasUnresolved60sAlert ?? false)) {
+      escalationSubtext = 'Alert unresolved for over a minute.';
+    }
+
+    final initials = first.patientName
+        .split(' ')
+        .map((e) => e.isNotEmpty ? e[0] : '')
+        .take(2)
+        .join()
+        .toUpperCase();
+
+    final chairNumber = first.chairLocation.replaceAll('Chair ', '').trim();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left Stripe: Solid Warning, Solid Critical, or 180deg Vertical Gradient (Warning -> Critical)
+            Container(
+              width: 6.5,
+              decoration: BoxDecoration(
+                color: isMixed
+                    ? null
+                    : (hasCritical ? const Color(0xFFEF4444) : const Color(0xFFF59E0B)),
+                gradient: isMixed
+                    ? const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                      )
+                    : null,
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Card Header: Avatar, Patient Name, Chair, Station & Level Badge(s)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: hasCritical
+                                      ? const Color(0xFFFEF2F2)
+                                      : const Color(0xFFFFFBEB),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: hasCritical
+                                        ? const Color(0xFFFECACA)
+                                        : const Color(0xFFFDE68A),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    initials.isNotEmpty ? initials : '?',
+                                    style: TextStyle(
+                                      color: hasCritical
+                                          ? const Color(0xFFDC2626)
+                                          : const Color(0xFFD97706),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            first.patientName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 14.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF1F5F9),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            chairNumber.isNotEmpty && chairNumber != 'Unknown'
+                                                ? chairNumber
+                                                : '?',
+                                            style: const TextStyle(
+                                              color: Color(0xFF475569),
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 10.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Chair $chairNumber · ${first.wardArea}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Severity & Counter Badges
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            // Session Alert Counter Pill
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isCounterRed
+                                    ? const Color(0xFFFADCD9)
+                                    : const Color(0xFFFBEED5),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isCounterRed
+                                      ? const Color(0xFFB3261E)
+                                      : const Color(0xFFA96A05),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                '#$effectiveCounter',
+                                style: TextStyle(
+                                  color: isCounterRed
+                                      ? const Color(0xFFB3261E)
+                                      : const Color(0xFFA96A05),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
+                            if (hasCritical)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEF4444),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'CRITICAL',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            if (hasWarning)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF59E0B),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'WARNING',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            if (anyRecovered)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCEFE5),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'RECOVERED',
+                                  style: TextStyle(
+                                    color: Color(0xFF2E7D5B),
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Numbered Alert Rows (1, 2, 3) inside Grouped Card
+                    ...List.generate(groupAlerts.length, (idx) {
+                      final item = groupAlerts[idx];
+                      final rowNum = startIndexOffset + idx + 1;
+                      final itemCrit = item.severity == AlertSeverity.critical;
+
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: idx == groupAlerts.length - 1 ? 0 : 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Numbered Badge [1] [2] [3]
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  margin: const EdgeInsets.only(top: 1),
+                                  decoration: BoxDecoration(
+                                    color: itemCrit
+                                        ? const Color(0xFFB3261E)
+                                        : const Color(0xFFA96A05),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '$rowNum',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.message,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF94A3B8)),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                'Triggered at ${item.timeString}',
+                                                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                              ),
+                                            ],
+                                          ),
+                                          if (item.hrBpm != null || item.spO2 != null)
+                                            Text(
+                                              'BPM: ${item.hrBpm ?? 93} · SpO₂: ${item.spO2 ?? 92}%',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF475569),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+
+                    // Vitals Snapshot Chips for the latest alert in the group
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'BPM: ',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${groupAlerts.last.hrBpm ?? 93}',
+                                style: TextStyle(
+                                  color: (groupAlerts.last.hrBpm ?? 93) > 100 ||
+                                          (groupAlerts.last.hrBpm ?? 93) < 60
+                                      ? (hasCritical ? const Color(0xFFEF4444) : const Color(0xFFD97706))
+                                      : const Color(0xFF0F172A),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'SpO₂: ',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${groupAlerts.last.spO2 ?? 92}%',
+                                style: TextStyle(
+                                  color: (groupAlerts.last.spO2 ?? 92) < 95
+                                      ? (hasCritical ? const Color(0xFFEF4444) : const Color(0xFFD97706))
+                                      : const Color(0xFF0F172A),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Part 5: Escalation Callout Banner ("Check the patient") when counter >= 3 or unresolved >= 60s
+                    if (isCounterRed && escalationSubtext != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFADCD9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFB3261E)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Check the patient',
+                              style: TextStyle(
+                                color: Color(0xFFB3261E),
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              escalationSubtext,
+                              style: const TextStyle(
+                                color: Color(0xFFB3261E),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              widget.state.selectPatient(first.patientId);
+                              widget.state.setTabIndex(2);
+                            },
+                            icon: const Icon(Icons.description_outlined, size: 14),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'View Patient Log',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textMain,
+                              side: const BorderSide(color: AppColors.borderLight),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final confirmed = await _confirmAcknowledgeAlertGroup(context, groupAlerts);
+                              if (!confirmed) return;
+
+                              final success = await widget.state.acknowledgeAlertGroup(groupAlerts);
+                              if (!success) {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      widget.state.lastAlertError ??
+                                          'Admin accounts cannot acknowledge clinical alerts.',
+                                    ),
+                                    backgroundColor: const Color(0xFFDC2626),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                                return;
+                              }
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    groupAlerts.length > 1
+                                        ? '${groupAlerts.length} alerts acknowledged by ${widget.state.nurseName} (Counter reset to 0)'
+                                        : 'Alert acknowledged by ${widget.state.nurseName}',
+                                  ),
+                                  backgroundColor: const Color(0xFF007D79),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                              if (mounted) {
+                                setState(() {
+                                  _showActive = false;
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.check, size: 14),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Acknowledge',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF007D79),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   List<Widget> _buildAcknowledgedAlertCards(List<AlertItem> alerts) {
@@ -1089,10 +1691,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        final confirmed = await _confirmAcknowledgeAlert(context, alert);
+                        final messenger = ScaffoldMessenger.of(context);
+                        final confirmed = await _confirmAcknowledgeAlertGroup(context, [alert]);
                         if (!confirmed) return;
 
-                        final messenger = ScaffoldMessenger.of(context);
                         final success = await widget.state.acknowledgeAlert(alert.id);
                         if (!success) {
                           messenger.showSnackBar(

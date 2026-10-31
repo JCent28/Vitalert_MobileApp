@@ -1,0 +1,780 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Alert Persistence Flow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: single reading column; timelines are the hero, rendered as reading-strips that scroll on their own */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eceff3;
+  --fg: #171c24;
+  --muted: #5c6672;
+  --line: #d6dbe2;
+  --line-strong: #b4bcc7;
+  --accent: #1f5f8b;
+  --accent-soft: #e3eef6;
+  --normal: #2e7d5b;
+  --normal-bg: #dcefe5;
+  --warn: #a96a05;
+  --warn-bg: #fbeed5;
+  --crit: #b3261e;
+  --crit-bg: #fadcd9;
+  --idle: #8b95a1;
+  --idle-bg: #e4e8ec;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151a;
+    --surface: #1a2027;
+    --surface-2: #232b34;
+    --fg: #e6eaef;
+    --muted: #9aa5b1;
+    --line: #2f3944;
+    --line-strong: #44505d;
+    --accent: #6fb3dd;
+    --accent-soft: #1c2c38;
+    --normal: #6ecfa0;
+    --normal-bg: #1b3328;
+    --warn: #e0a84a;
+    --warn-bg: #362b14;
+    --crit: #f08b84;
+    --crit-bg: #3a1d1a;
+    --idle: #8b95a1;
+    --idle-bg: #262d35;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151a;
+  --surface: #1a2027;
+  --surface-2: #232b34;
+  --fg: #e6eaef;
+  --muted: #9aa5b1;
+  --line: #2f3944;
+  --line-strong: #44505d;
+  --accent: #6fb3dd;
+  --accent-soft: #1c2c38;
+  --normal: #6ecfa0;
+  --normal-bg: #1b3328;
+  --warn: #e0a84a;
+  --warn-bg: #362b14;
+  --crit: #f08b84;
+  --crit-bg: #3a1d1a;
+  --idle: #8b95a1;
+  --idle-bg: #262d35;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 72px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+
+.eyebrow {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+}
+h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; line-height: 1.15; margin: 8px 0 0; text-wrap: balance; letter-spacing: -.01em; }
+h2 { font-size: clamp(21px, 3.2vw, 26px); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: -.005em; }
+h3 { font-size: 16px; font-weight: 600; margin: 0; }
+p { margin: 0; max-width: 66ch; }
+.lede { color: var(--muted); font-size: 17px; margin-top: 14px; }
+.sub { color: var(--muted); font-size: 14.5px; }
+
+section { display: flex; flex-direction: column; gap: 20px; }
+.sec-head { display: flex; flex-direction: column; gap: 8px; border-top: 2px solid var(--line-strong); padding-top: 18px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+
+/* reading strip */
+.strip-block { display: flex; flex-direction: column; gap: 10px; }
+.strip-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.strip-label .name { font-weight: 600; font-size: 15px; }
+.strip-label .note { color: var(--muted); font-size: 13.5px; }
+.scroller { overflow-x: auto; padding-bottom: 6px; }
+.strip { display: flex; gap: 3px; min-width: min-content; }
+.cell {
+  width: 26px; height: 34px; flex: 0 0 26px;
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  border-radius: 4px; border: 1px solid transparent;
+}
+.n { background: var(--normal-bg); color: var(--normal); }
+.w { background: var(--warn-bg); color: var(--warn); }
+.c { background: var(--crit-bg); color: var(--crit); }
+.x { background: var(--idle-bg); color: var(--idle); }
+.cell.mark { border-color: currentColor; }
+
+.axis { display: flex; gap: 3px; min-width: min-content; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.tick { width: 26px; flex: 0 0 26px; text-align: center; }
+
+.flag {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 600;
+  padding: 5px 10px; border-radius: 5px; letter-spacing: .03em;
+}
+.flag.fire { background: var(--crit-bg); color: var(--crit); }
+.flag.warn { background: var(--warn-bg); color: var(--warn); }
+
+/* alert card mockups */
+.acard {
+  position: relative; overflow: hidden; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--line);
+  padding: 15px 17px 15px 26px; display: flex; flex-direction: column; gap: 11px;
+}
+.acard .edge { position: absolute; left: 0; top: 0; bottom: 0; width: 7px; }
+.edge-w { background: var(--warn); }
+.edge-c { background: var(--crit); }
+.edge-180 { background: linear-gradient(180deg, var(--warn), var(--crit)); }
+.edge-90 { background: linear-gradient(90deg, var(--warn), var(--crit)); }
+.acard.ring { border: 2px solid var(--warn); padding-left: 17px; }
+.acard.ring.ring-c { border-color: var(--crit); }
+.acard.ring.ring-mix {
+  border: 2px solid transparent;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+              linear-gradient(90deg, var(--warn), var(--crit)) border-box;
+}
+.ahead { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.aname { font-weight: 600; font-size: 15px; }
+.aname span { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 7px; }
+.abadges { display: flex; gap: 6px; }
+.abadge {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 5px;
+}
+.abadge.w { background: var(--warn); color: #fff; }
+.abadge.c { background: var(--crit); color: #fff; }
+.arows { display: flex; flex-direction: column; gap: 7px; }
+.arow { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; font-size: 13.5px; min-width: 0; }
+.anum {
+  width: 20px; height: 20px; border-radius: 4px; display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: #fff;
+}
+.anum.w { background: var(--warn); }
+.anum.c { background: var(--crit); }
+.cardgrid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 620px) { .cardgrid.two { grid-template-columns: 1fr 1fr; } }
+.caption { font-size: 13px; color: var(--muted); margin-top: -4px; }
+.open-q { display: flex; flex-direction: column; gap: 0; }
+.open-q > div { padding: 13px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.open-q > div:last-child { border-bottom: 0; }
+.open-q .q { font-weight: 600; font-size: 15px; }
+.open-q .a { color: var(--muted); font-size: 14px; }
+
+/* patient log counter card mockups */
+.ccard {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 12px;
+}
+.ccard .ctop { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.ccard .cnum { font-family: var(--font-sans); font-size: 44px; font-weight: 700; line-height: 1; }
+.cnum.amber { color: var(--warn); }
+.cnum.red { color: var(--crit); }
+.ccard .cwhen { font-size: 12.5px; color: var(--muted); }
+.cmsg {
+  border-radius: 7px; padding: 10px 12px; font-size: 13px; font-weight: 600; line-height: 1.4;
+  background: var(--crit-bg); color: var(--crit); border: 1px solid var(--crit);
+}
+.cmsg em { font-style: normal; font-weight: 400; display: block; margin-top: 3px; opacity: .85; font-size: 12.5px; }
+.lane { display: flex; flex-direction: column; gap: 9px; }
+.step-row { display: grid; grid-template-columns: 58px 1fr; gap: 12px; align-items: baseline; min-width: 0; }
+.step-row .t { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); font-weight: 600; }
+.step-row .d { font-size: 14px; min-width: 0; }
+.step-row.hit .d { font-weight: 600; }
+.step-row.hit .t { color: var(--crit); }
+.lane-head { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+.flag.quiet { background: var(--surface-2); color: var(--muted); }
+.flag.clear { background: var(--normal-bg); color: var(--normal); }
+.flagrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* steps */
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; counter-reset: s; }
+ol.steps > li {
+  counter-increment: s;
+  display: grid; grid-template-columns: 30px 1fr; gap: 14px;
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+}
+ol.steps > li:last-child { border-bottom: 0; }
+ol.steps > li::before {
+  content: counter(s);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  color: var(--accent); background: var(--accent-soft);
+  width: 26px; height: 26px; border-radius: 5px; display: grid; place-items: center;
+}
+ol.steps .body { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+ol.steps .q { font-weight: 600; font-size: 15.5px; }
+ol.steps .a { color: var(--muted); font-size: 14.5px; }
+
+/* counter timeline */
+.episodes { display: flex; flex-direction: column; gap: 0; }
+.ep {
+  display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
+  padding: 13px 0; border-bottom: 1px solid var(--line); min-width: 0;
+}
+.ep:last-child { border-bottom: 0; }
+.ep .what { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ep .what strong { font-weight: 600; font-size: 15px; }
+.ep .what span { color: var(--muted); font-size: 13.5px; }
+.pip {
+  font-family: var(--font-mono); font-size: 15px; font-weight: 600;
+  min-width: 46px; height: 34px; padding: 0 11px; border-radius: 6px;
+  display: grid; place-items: center; white-space: nowrap;
+}
+.pip.zero { background: var(--surface-2); color: var(--muted); }
+.pip.on { background: var(--warn-bg); color: var(--warn); }
+.pip.hot { background: var(--crit-bg); color: var(--crit); }
+
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.scroller table { min-width: 520px; }
+th, td { text-align: left; padding: 11px 14px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td.now { color: var(--muted); }
+td.next { font-weight: 500; }
+
+code {
+  font-family: var(--font-mono); font-size: .88em;
+  background: var(--surface-2); padding: 2px 6px; border-radius: 4px;
+}
+.where { display: flex; flex-direction: column; gap: 0; }
+.where > div {
+  display: grid; grid-template-columns: 1fr; gap: 4px;
+  padding: 13px 0; border-bottom: 1px solid var(--line); min-width: 0;
+}
+.where > div:last-child { border-bottom: 0; }
+.where .file { font-family: var(--font-mono); font-size: 13.5px; color: var(--accent); overflow-wrap: anywhere; }
+.where .act { font-size: 14.5px; }
+
+.callout {
+  border-left: 3px solid var(--accent); background: var(--accent-soft);
+  padding: 16px 18px; border-radius: 0 8px 8px 0;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.callout strong { font-weight: 600; }
+.callout p { font-size: 14.5px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 15px; height: 15px; border-radius: 3px; display: inline-block; }
+
+@media (max-width: 440px) {
+  .cell, .tick { width: 22px; flex-basis: 22px; }
+  .cell { height: 30px; font-size: 12px; }
+}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Vitalert · Revision item 1</div>
+    <h1>When Vitalert calls a nurse</h1>
+    <p class="lede">Two rules decide when a nurse gets called to a patient. The first rule waits 15 seconds, to check that a bad reading is real and not just noise. The second rule counts how many times the patient has gone bad. Both rules run on the server, in one place.</p>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <h2>Part 1 · The 15-second wait</h2>
+      <p class="sub">One bad reading on its own means nothing. The readings have to stay bad for 15 seconds before the system tells anyone.</p>
+    </div>
+
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--normal-bg);border:1px solid var(--normal)"></i> N — normal</span>
+      <span><i class="swatch" style="background:var(--warn-bg);border:1px solid var(--warn)"></i> W — warning</span>
+      <span><i class="swatch" style="background:var(--crit-bg);border:1px solid var(--crit)"></i> C — critical</span>
+      <span><i class="swatch" style="background:var(--idle-bg);border:1px solid var(--idle)"></i> — — no finger (0 reading)</span>
+    </div>
+
+    <div class="card">
+      <div class="strip-block">
+        <div class="strip-label">
+          <span class="name">How the app works right now</span>
+          <span class="note">Three Critical readings in a row, about 3 seconds, and the alarm goes off</span>
+        </div>
+        <div class="scroller">
+          <div class="strip">
+            <div class="cell n">N</div><div class="cell n">N</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c mark">C</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+          </div>
+        </div>
+        <div class="flagrow"><span class="flag fire">ALERT at 3s</span><span class="sub">It alarms on noise. This is what the panel complained about.</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="strip-block">
+        <div class="strip-label">
+          <span class="name">How it would work with the 15-second wait</span>
+          <span class="note">The timer starts on the first bad reading and runs for 15 seconds</span>
+        </div>
+        <div class="scroller">
+          <div class="strip">
+            <div class="cell n">N</div><div class="cell n">N</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c mark">C</div>
+          </div>
+          <div class="axis">
+            <div class="tick"></div><div class="tick"></div>
+            <div class="tick">0s</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">3</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">6</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">9</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">12</div><div class="tick"></div><div class="tick"></div><div class="tick">15</div>
+          </div>
+        </div>
+        <div class="flagrow"><span class="flag quiet">silent 0–14s</span><span class="flag fire">ALERT at 15s</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="strip-block">
+        <div class="strip-label">
+          <span class="name">A Warning waits the same 15 seconds</span>
+          <span class="note">Decided: Warning and Critical both wait 15 seconds</span>
+        </div>
+        <div class="scroller">
+          <div class="strip">
+            <div class="cell n">N</div><div class="cell n">N</div>
+            <div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div>
+            <div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div>
+            <div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div>
+            <div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div><div class="cell w mark">W</div>
+          </div>
+          <div class="axis">
+            <div class="tick"></div><div class="tick"></div>
+            <div class="tick">0s</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">3</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">6</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">9</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">12</div><div class="tick"></div><div class="tick"></div><div class="tick">15</div>
+          </div>
+        </div>
+        <div class="flagrow"><span class="flag warn">WARNING at 15s</span></div>
+        <p class="sub">Warning and Critical both wait 15 seconds. No study has tested giving them different waits, so using two different numbers would mean we picked one ourselves instead of citing research.</p>
+        <p class="sub">If a panelist asks why a Warning does not wait longer, here is the answer. Warning sits right next to Normal: an SpO₂ of 94 is a Warning and 95 is Normal. So a reading that moves by one point can flip back and forth between them. Critical readings sit further away, so they flip less. That is a fair reason to make Warning wait longer, but no study has tested it. So both stay at 15 seconds, and the rule that needs three good readings in a row to clear an alert deals with the flipping instead.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="strip-block">
+        <div class="strip-label">
+          <span class="name">When a Warning gets worse and turns Critical</span>
+          <span class="note">The timer keeps running. It does not start over.</span>
+        </div>
+        <div class="scroller">
+          <div class="strip">
+            <div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div><div class="cell w">W</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c mark">C</div>
+          </div>
+          <div class="axis">
+            <div class="tick">0s</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">3</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">6</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">9</div><div class="tick"></div><div class="tick"></div>
+            <div class="tick">12</div><div class="tick"></div><div class="tick"></div><div class="tick">15</div>
+          </div>
+        </div>
+        <div class="flagrow"><span class="flag fire">CRITICAL at 15s</span></div>
+        <p class="sub">The timer starts on the first bad reading, whether it is a Warning or a Critical, and runs the full 15 seconds. When the alert finally appears, it uses whichever level the reading is at that moment. If any Critical readings happened along the way, the alert message mentions it. Once the alert exists, a Critical reading upgrades it right away.</p>
+        <p class="sub">Using two separate timers would be worse. A Critical reading arriving at second 14 of a Warning would reset the timer back to zero and push the alarm out another 15 seconds.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="strip-block">
+        <div class="strip-label">
+          <span class="name">One good reading does not reset the timer</span>
+          <span class="note">This is the jumping around that the panel described</span>
+        </div>
+        <div class="scroller">
+          <div class="strip">
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell n mark">N</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c mark">C</div>
+          </div>
+        </div>
+        <p class="sub">That single N counts as one good reading. The very next bad reading sets that count back to zero. Meanwhile the 15-second timer keeps running from the first bad reading, so the alert still appears on time. A jumpy sensor cannot keep pushing the alarm back.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="strip-block">
+        <div class="strip-label">
+          <span class="name">Three good readings in a row clear the alert</span>
+          <span class="note">One good reading is not enough</span>
+        </div>
+        <div class="scroller">
+          <div class="strip">
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell n">N</div><div class="cell n">N</div><div class="cell n mark">N</div>
+            <div class="cell n">N</div><div class="cell n">N</div>
+          </div>
+        </div>
+        <div class="flagrow"><span class="flag clear">CLEARS on the 3rd N</span><span class="sub">A Warning closes by itself. A Critical is marked as recovered but still waits for a nurse to confirm it.</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="strip-block">
+        <div class="strip-label">
+          <span class="name">A lifted finger does not count at all</span>
+          <span class="note">A BPM or SpO₂ of 0 is thrown away. It is neither good nor bad.</span>
+        </div>
+        <div class="scroller">
+          <div class="strip">
+            <div class="cell c">C</div><div class="cell c">C</div>
+            <div class="cell x">—</div><div class="cell x">—</div><div class="cell x">—</div>
+            <div class="cell c">C</div><div class="cell c">C</div><div class="cell c">C</div>
+          </div>
+        </div>
+        <p class="sub">The timer keeps running straight through the gap. Right now the server treats a 0 as a good reading, so lifting a finger can close a real Warning without anyone noticing.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Why 15 seconds and not 3, and not 2 minutes</strong>
+      <p>McGrath and colleagues (2022) tested waits from 0 to 15 seconds. A 15-second wait removed 71% of the SpO₂ alarms and about 80% of the pulse rate alarms, because most false alarms stop on their own before 15 seconds is up. Rheineck-Leyssius and Kalkman (1998) tested waits from 2 to 44 seconds and got about 82% at 18 seconds.</p>
+      <p>15 is a number a real study tested and published a result for, so it can be cited directly instead of guessed from a range. For comparison: the panel asked for 1 to 2 minutes, and the developer built 3 seconds.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Part 2 · What the system checks on every reading</h2>
+      <p class="sub">These same seven checks run every time the device sends a reading. Nothing else decides whether an alert appears.</p>
+    </div>
+
+    <div class="card">
+      <ol class="steps">
+        <li><div class="body"><span class="q">Is this a real reading?</span><span class="a">If BPM or SpO₂ is 0, stop here. Change nothing, and leave both counters alone.</span></div></li>
+        <li><div class="body"><span class="q">Label it.</span><span class="a">Normal, Warning or Critical, using the number ranges already in <code>determineHealthStatus</code>.</span></div></li>
+        <li><div class="body"><span class="q">Bad reading? Set the good-reading count back to 0.</span><span class="a">Any bad reading wipes out progress toward clearing the alert.</span></div></li>
+        <li><div class="body"><span class="q">Bad reading, and the timer is not running? Start it.</span><span class="a">Save the time of this first bad reading. Warning or Critical, it makes no difference. If the timer is already running, leave it alone, even if the reading changes from Warning to Critical.</span></div></li>
+        <li><div class="body"><span class="q">Has it been bad for 15 seconds?</span><span class="a">If not, do nothing and wait for the next reading. If yes, and there is no alert open yet, create the alert and add 1 to the counter.</span></div></li>
+        <li><div class="body"><span class="q">Good reading? Add 1 to the good-reading count.</span><span class="a">Below 3, nothing happens. The alert stays exactly as it is.</span></div></li>
+        <li><div class="body"><span class="q">Three good readings in a row? Stop the timer and close the alert.</span><span class="a">A Warning closes by itself. A Critical is marked as recovered but stays open until a nurse confirms it.</span></div></li>
+      </ol>
+    </div>
+
+    <div class="callout">
+      <strong>A Critical reading still skips ahead</strong>
+      <p>If a patient already has a Warning alert and a Critical reading comes in, the alert upgrades to Critical right away. It does not start a new 15-second timer. <code>triggerPhysicalAlert</code> already does this upgrade, so the new timer just has to not block it.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Part 3 · The alert counter</h2>
+      <p class="sub">One run of bad readings makes one alert, and one alert adds 1 to the counter. Not one reading, and not one second.</p>
+    </div>
+
+    <div class="card">
+      <h3>A session, start to finish</h3>
+      <div class="episodes">
+        <div class="ep"><div class="what"><strong>Session starts</strong><span>Counter resets to zero</span></div><div class="pip zero">0</div></div>
+        <div class="ep"><div class="what"><strong>SpO₂ drops and stays down 15 seconds</strong><span>First alert created</span></div><div class="pip on">1</div></div>
+        <div class="ep"><div class="what"><strong>Recovers with 3 good readings</strong><span>The alert closes. The counter does not go back down.</span></div><div class="pip on">1</div></div>
+        <div class="ep"><div class="what"><strong>Drops again and stays down 15 seconds</strong><span>Second alert</span></div><div class="pip on">2</div></div>
+        <div class="ep"><div class="what"><strong>Recovers again</strong><span>The second alert closes</span></div><div class="pip on">2</div></div>
+        <div class="ep"><div class="what"><strong>Drops a third time</strong><span>Third alert. This patient keeps getting worse.</span></div><div class="pip hot">3</div></div>
+        <div class="ep"><div class="what"><strong>Nurse acknowledges</strong><span>The counter clears, still inside the same session</span></div><div class="pip zero">0</div></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>The counter does not exist yet</strong>
+      <p>Nothing on the Dashboard or the Alerts page counts alerts for each patient. The only count in the app is on the Patient Log page, the big number labelled “Total Alerts, in this session”, and it is not counting alerts. <code>PatientLogController</code> goes through the list of readings and adds 1 for every reading marked Critical or Warning. It never looks at the alerts saved in Firebase at all.</p>
+      <p>Since a reading is saved about once a second, a total of 47 on that card really means about 47 seconds of bad readings. The 15-second wait will not fix that number, because it was never counting alerts in the first place. That code has to be rewritten to count alerts instead.</p>
+    </div>
+
+    <div class="card">
+      <h3>Two different things to watch for</h3>
+      <p class="sub">Both are counted from alerts, not from readings. A run of bad readings that made one alert counts as 1, no matter how long it lasted.</p>
+      <p class="sub"><strong>A patient who goes bad and will not recover</strong> is caught by the 15-second wait. The alert appears and then stays open until somebody deals with it.</p>
+      <p class="sub"><strong>A patient who keeps going bad</strong> is caught by the counter. Three separate alerts in one session, with a recovery in between each one, is a different problem from one long bad stretch, and it needs a different answer.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Part 4 · The grouped alert card</h2>
+      <p class="sub">Three alerts for the same patient are grouped into one card. The border colour shows which levels are inside it, and one Acknowledge button clears all three.</p>
+    </div>
+
+    <div class="cardgrid two">
+      <div>
+        <div class="acard">
+          <div class="edge edge-w"></div>
+          <div class="ahead">
+            <div class="aname">Renzo <span>Chair 1 · Station 1</span></div>
+            <div class="abadges"><span class="abadge w">Warning</span></div>
+          </div>
+          <div class="arows">
+            <div class="arow"><span class="anum w">1</span><span>SpO₂ decreased to 92%</span></div>
+            <div class="arow"><span class="anum w">2</span><span>BPM elevated to 108 bpm</span></div>
+            <div class="arow"><span class="anum w">3</span><span>SpO₂ decreased to 93%</span></div>
+          </div>
+        </div>
+        <p class="caption">W, W, W — solid warning</p>
+      </div>
+
+      <div>
+        <div class="acard">
+          <div class="edge edge-c"></div>
+          <div class="ahead">
+            <div class="aname">Renzo <span>Chair 1 · Station 1</span></div>
+            <div class="abadges"><span class="abadge c">Critical</span></div>
+          </div>
+          <div class="arows">
+            <div class="arow"><span class="anum c">1</span><span>SpO₂ dropped to 87%</span></div>
+            <div class="arow"><span class="anum c">2</span><span>BPM low at 46 bpm</span></div>
+            <div class="arow"><span class="anum c">3</span><span>SpO₂ dropped to 85%</span></div>
+          </div>
+        </div>
+        <p class="caption">C, C, C — solid critical</p>
+      </div>
+    </div>
+
+    <div class="cardgrid two">
+      <div>
+        <div class="acard">
+          <div class="edge edge-180"></div>
+          <div class="ahead">
+            <div class="aname">Renzo <span>Chair 1 · Station 1</span></div>
+            <div class="abadges"><span class="abadge c">Critical</span><span class="abadge w">Warning</span></div>
+          </div>
+          <div class="arows">
+            <div class="arow"><span class="anum w">1</span><span>SpO₂ decreased to 92%</span></div>
+            <div class="arow"><span class="anum c">2</span><span>BPM low at 46 bpm</span></div>
+            <div class="arow"><span class="anum w">3</span><span>SpO₂ decreased to 93%</span></div>
+          </div>
+        </div>
+        <p class="caption">W, C, W — mixed levels, so the border is a gradient. At <strong>180deg</strong> it runs top to bottom and you can see both colours.</p>
+      </div>
+
+      <div>
+        <div class="acard">
+          <div class="edge edge-90"></div>
+          <div class="ahead">
+            <div class="aname">Renzo <span>Chair 1 · Station 1</span></div>
+            <div class="abadges"><span class="abadge c">Critical</span><span class="abadge w">Warning</span></div>
+          </div>
+          <div class="arows">
+            <div class="arow"><span class="anum w">1</span><span>SpO₂ decreased to 92%</span></div>
+            <div class="arow"><span class="anum c">2</span><span>BPM low at 46 bpm</span></div>
+            <div class="arow"><span class="anum w">3</span><span>SpO₂ decreased to 93%</span></div>
+          </div>
+        </div>
+        <p class="caption">The same gradient at <strong>90deg</strong>, running left to right. The stripe is only 7 pixels wide, so both colours get squeezed into it and it just looks like one muddy colour. This is what 90deg does to a thin vertical stripe.</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="acard ring ring-mix">
+        <div class="ahead">
+          <div class="aname">Renzo <span>Chair 1 · Station 1</span></div>
+          <div class="abadges"><span class="abadge c">Critical</span><span class="abadge w">Warning</span></div>
+        </div>
+        <div class="arows">
+          <div class="arow"><span class="anum w">1</span><span>SpO₂ decreased to 92%</span></div>
+          <div class="arow"><span class="anum c">2</span><span>BPM low at 46 bpm</span></div>
+          <div class="arow"><span class="anum w">3</span><span>SpO₂ decreased to 93%</span></div>
+        </div>
+      </div>
+      <p class="caption">The other way to read what you asked for: put the gradient on the whole card border instead of the left stripe. 90deg works here, because it has the full width of the card to travel across. Pick this one or the 180deg stripe above.</p>
+    </div>
+
+    <div class="callout">
+      <strong>The gap this leaves, and where it is closed</strong>
+      <p>A patient who goes Critical and stays Critical makes one alert, not three. The counter never reaches 3, the card never fills up, and going by the counter alone the nurse is never told to go. The sickest patient would be the one the rule never acts on.</p>
+      <p>Part 5 fixes this. One alert that nobody has dealt with for 60 seconds turns the counter red by itself, with no need for a second or third alert.</p>
+    </div>
+
+    <div class="card">
+      <h3>Three more decisions the developer will need</h3>
+      <div class="open-q">
+        <div><span class="q">What does a card look like at 1 or 2 alerts?</span><span class="a">The nurse is not told to go until the third alert, but the first two alerts still exist. The card probably appears with one or two rows in it and no message.</span></div>
+        <div><span class="q">What happens at 4 and beyond?</span><span class="a">One card holds 3 alerts. Does the fourth alert start a second card, so a patient with 7 alerts ends up with three cards? The panel said the count keeps going up past 3.</span></div>
+        <div><span class="q">Does the order of the levels change the gradient?</span><span class="a">W,C,W and C,W,W have the same two levels, just in a different order. The simplest rule is: all three the same means a solid colour, any mix means a gradient from warning to critical, and the order is ignored. That is easier to build and easier to read.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Part 5 · Two ways the nurse gets told to go</h2>
+      <p class="sub">Both ways end up showing the nurse the same thing: a red counter and a message. So there is one result, reached in two different ways.</p>
+    </div>
+
+    <div class="cardgrid two">
+      <div class="card">
+        <div class="lane-head">The patient who goes bad and stays bad</div>
+        <div class="lane">
+          <div class="step-row"><span class="t">0s</span><span class="d">SpO₂ drops to 85. The timer starts.</span></div>
+          <div class="step-row"><span class="t">15s</span><span class="d">Alert created. Counter shows 1 in amber. Card appears. Chime plays.</span></div>
+          <div class="step-row"><span class="t">16–74s</span><span class="d">Still 85. No recovery, so no second alert. Counter stays at 1.</span></div>
+          <div class="step-row hit"><span class="t">75s</span><span class="d">Nobody has dealt with it for 60 seconds. The counter turns red even at 1, the message appears, and a second chime plays.</span></div>
+        </div>
+        <p class="sub">Without this path the counter would sit at 1 for the whole session and the nurse would never be called.</p>
+      </div>
+
+      <div class="card">
+        <div class="lane-head">The patient who keeps going bad</div>
+        <div class="lane">
+          <div class="step-row"><span class="t">15s</span><span class="d">Alert 1. Counter shows 1 in amber. Recovers after 3 good readings.</span></div>
+          <div class="step-row"><span class="t">45s</span><span class="d">Alert 2. Counter shows 2 in amber. Recovers again.</span></div>
+          <div class="step-row hit"><span class="t">80s</span><span class="d">Alert 3. The counter turns red at 3, the message appears, and a second chime plays.</span></div>
+        </div>
+        <p class="sub">Each alert here is a separate bad stretch with a recovery in between, which is why they count separately.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:8px">What the Patient Log card shows</h3>
+    <div class="cardgrid two">
+      <div>
+        <div class="ccard">
+          <div class="ctop">Total alerts</div>
+          <div class="cnum amber">2</div>
+          <div class="cwhen">in this session · Last alert 10:04</div>
+        </div>
+        <p class="caption">1 or 2 alerts, and none of them left sitting for over a minute. Amber number, no message.</p>
+      </div>
+      <div>
+        <div class="ccard">
+          <div class="ctop">Total alerts</div>
+          <div class="cnum red">1</div>
+          <div class="cmsg">Check the patient<em>Alert unresolved for over a minute.</em></div>
+          <div class="cwhen">in this session · Last alert 10:04</div>
+        </div>
+        <p class="caption">A red 1. There is only one alert, but nobody dealt with it. This is the case the counter on its own would miss.</p>
+      </div>
+    </div>
+
+    <div class="cardgrid">
+      <div>
+        <div class="ccard">
+          <div class="ctop">Total alerts</div>
+          <div class="cnum red">3</div>
+          <div class="cmsg">Check the patient<em>3 alerts this session.</em></div>
+          <div class="cwhen">in this session · Last alert 10:06</div>
+        </div>
+        <p class="caption">Three separate alerts. Same red number, same message spot, but a different reason. The wording is what tells the nurse which one happened.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>The one rule that changes</strong>
+      <p>The number alone no longer decides the colour. It turns red when the counter reaches 3, <em>or</em> when an alert has sat for 60 seconds without anyone dealing with it. Without the message underneath, a nurse seeing a red 1 would have no idea why.</p>
+    </div>
+
+    <div class="card">
+      <h3>What drives the 60-second timer</h3>
+      <p class="sub">Nothing new is needed. Readings come in every few seconds. Each time one arrives, the server checks whether this patient has an open alert older than 60 seconds that has not been flagged yet, and flags it. Same function, same place, no scheduled job and no extra program.</p>
+      <p class="sub">If the device stops sending readings entirely, nothing runs the check, but the idle detection already in the app handles a disconnected device separately.</p>
+      <p class="sub">McGrath's system also pages the nurse again every 3 minutes while the patient is still bad. That would mean a repeat chime on the same schedule. Worth leaving out for now and putting in Recommendations instead.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Part 6 · Where it goes in the code</h2>
+      <p class="sub">One rule, on the server. The copies in the simulator and in the browser get deleted.</p>
+    </div>
+
+    <div class="card">
+      <div class="where">
+        <div>
+          <span class="file">PatientController::sendToFirebase</span>
+          <span class="act">The 15-second wait goes here, just before <code>triggerPhysicalAlert</code> is called. This is the only code that both the real HDA1 and the simulator pass through.</span>
+        </div>
+        <div>
+          <span class="file">patients/{id} in Firebase</span>
+          <span class="act">Stores what the timer needs: when the bad readings started, what level they are, how many good readings in a row, and how many alerts this session. Each reading arrives as its own separate web request, so none of this can be kept in memory.</span>
+        </div>
+        <div>
+          <span class="file">PatientController::startSession</span>
+          <span class="act">Reset the timer and the counter, in the same block that already sets <code>final_vitals</code> to null.</span>
+        </div>
+        <div>
+          <span class="file">PatientController::endSession</span>
+          <span class="act">Reset both again, in the <code>$patientUpdates</code> array.</span>
+        </div>
+        <div>
+          <span class="file">AlertController::acknowledge</span>
+          <span class="act">Clear the counter when a nurse verifies the patient. This is the panel's own reset rule.</span>
+        </div>
+        <div>
+          <span class="file">PatientLogController — the alertCounts loop</span>
+          <span class="act">Rewrite. Right now it goes through <code>$readings</code> and counts the bad readings while calling them alerts. It needs to count the session's actual alerts instead, or the Patient Log will keep showing seconds of bad readings as an alert count.</span>
+        </div>
+        <div>
+          <span class="file">dashboard/index.blade.php and alerts/index.blade.php</span>
+          <span class="act">Build. Neither page shows an alert count for each patient today, only the level badges. The live counter the panel asked for has to be added here, where the nurse is actually looking.</span>
+        </div>
+        <div>
+          <span class="file">SimulateDeviceVitals::evaluateAlerts</span>
+          <span class="act">Delete. Its 3 and 6 second timers are a second, different opinion about when to alarm, and everything it remembers is lost when the program stops.</span>
+        </div>
+        <div>
+          <span class="file">notification-manager.js — evaluateVitalWindow</span>
+          <span class="act">Delete. A timer that lives inside one browser tab empties when the page is refreshed, and disappears completely when the tab is closed.</span>
+        </div>
+        <div>
+          <span class="file">notification-manager.js — the alerts listener</span>
+          <span class="act">Keep. Once every alert in Firebase has already passed the 15-second wait, chiming the moment one appears is correct. Add a second chime when an existing alert changes level, so an upgrade is still heard.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Before and after</h2>
+    </div>
+    <div class="card">
+      <div class="scroller">
+        <table>
+          <thead><tr><th>What the system does</th><th>Right now</th><th>After the change</th></tr></thead>
+          <tbody>
+            <tr><td>An alert appears after</td><td class="now">3 Critical readings, about 3 seconds</td><td class="next">15 seconds of non-stop bad readings</td></tr>
+            <tr><td>An alert closes after</td><td class="now">1 good reading</td><td class="next">3 good readings in a row</td></tr>
+            <tr><td>One stray good reading in the middle</td><td class="now">counts toward closing the alert</td><td class="next">ignored, the timer keeps running</td></tr>
+            <tr><td>A reading of 0, finger lifted off</td><td class="now">treated as a good reading, closes Warnings</td><td class="next">thrown away, changes nothing</td></tr>
+            <tr><td>Behaves the same on the device and the simulator</td><td class="now">no, readings come every 1s vs every 4s</td><td class="next">yes, because the rule counts seconds</td></tr>
+            <tr><td>Where the rule lives</td><td class="now">in the simulator and the browser, but not in the device's code</td><td class="next">on the server, one place, used by everything</td></tr>
+            <tr><td>What the alert counter means</td><td class="now">roughly how many seconds of bad readings</td><td class="next">how many times the nurse was called</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Where these numbers came from</h2>
+    </div>
+    <div class="card">
+      <p class="sub">The 15 seconds comes straight from McGrath and colleagues, who tested that exact wait and published the result, so it can be cited directly instead of guessed. But nothing was tested on the HDA1 itself, and neither study checked whether any real emergencies got missed. So the paper can say 15 seconds is what the research supports. It cannot say the wait is safe.</p>
+      <p class="sub">The 3 good readings needed to clear an alert has no study behind it at all. Neither paper tested how an alarm should clear. That number is our own choice, and the paper should say so plainly. The counter threshold of 3 is not research either, it came from the panel.</p>
+      <p class="sub">Chapter 4 reports how fast alerts reached the nurse, measured back when there was no 15-second wait at all. Those numbers now describe a device that no longer works that way, so the write-up needs a line saying the wait was added after the testing was done, in response to the panel.</p>
+    </div>
+  </section>
+
+</div>
+
+</body></html>

@@ -275,10 +275,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     }
 
-    if (patientId != null && patientId.isNotEmpty && (session == null || session.isEmpty)) {
+    if (patientId != null && patientId.isNotEmpty) {
       final pIndex = _patients.indexWhere((p) => p.id == patientId);
       if (pIndex != -1) {
-        session = _patients[pIndex].session;
+        if (session == null || session.isEmpty) {
+          session = _patients[pIndex].session;
+        }
+        // Part 3: Nurse acknowledges -> reset the patient's session alert counter to 0
+        _patients[pIndex] = _patients[pIndex].copyWith(
+          sessionAlertCount: 0,
+          consecutiveGoodReadings: 0,
+          hasUnresolved60sAlert: false,
+        );
+        notifyListeners();
       }
     }
 
@@ -286,6 +295,74 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
     final success = await _rtdbService.acknowledgeAlert(
       alertId: alertId,
+      nurseName: nurseName,
+      nurseId: currentStaffId,
+      userRole: userRole,
+      patientId: patientId,
+      session: session,
+      time: timeStr,
+      note: note,
+      client: client,
+    );
+
+    if (!success) {
+      _lastAlertError = _rtdbService.lastAlertError;
+      notifyListeners();
+    }
+    return success;
+  }
+
+  /// Part 4: Acknowledges all alerts inside a grouped patient alert card with one button tap,
+  /// and resets the patient's session alert counter to 0.
+  Future<bool> acknowledgeAlertGroup(
+    List<AlertItem> groupAlerts, {
+    String? note,
+    http.Client? client,
+  }) async {
+    _lastAlertError = null;
+    if (groupAlerts.isEmpty) return true;
+
+    if (currentUser?.isAdmin == true || userRole.toLowerCase() == 'admin') {
+      _lastAlertError = 'Admin accounts cannot acknowledge clinical alerts.';
+      debugPrint('acknowledgeAlertGroup rejected: $_lastAlertError');
+      notifyListeners();
+      return false;
+    }
+
+    final timeStr = DateFormat('HH:mm').format(DateTime.now());
+    final patientId = groupAlerts.first.patientId;
+    String? session = groupAlerts.first.session;
+
+    for (final grpAlert in groupAlerts) {
+      final idx = _alerts.indexWhere((a) => a.id == grpAlert.id);
+      if (idx != -1) {
+        _alerts[idx].acknowledge(
+          nurseName: nurseName,
+          time: timeStr,
+          nurseId: currentStaffId,
+        );
+        if (note != null) _alerts[idx].note = note;
+      }
+      AlertNotificationService.dismissAlert(grpAlert.id, patientId: patientId);
+    }
+
+    if (patientId.isNotEmpty) {
+      final pIndex = _patients.indexWhere((p) => p.id == patientId);
+      if (pIndex != -1) {
+        if (session == null || session.isEmpty) {
+          session = _patients[pIndex].session;
+        }
+        _patients[pIndex] = _patients[pIndex].copyWith(
+          sessionAlertCount: 0,
+          consecutiveGoodReadings: 0,
+          hasUnresolved60sAlert: false,
+        );
+      }
+    }
+    notifyListeners();
+
+    final success = await _rtdbService.acknowledgeAlertBatch(
+      alertIds: groupAlerts.map((a) => a.id).toList(),
       nurseName: nurseName,
       nurseId: currentStaffId,
       userRole: userRole,
@@ -356,6 +433,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           session: 'Session $sessionNum',
           deviceId: deviceId.isEmpty ? 'N/A' : deviceId,
           status: AlertSeverity.info,
+          sessionAlertCount: 0,
+          consecutiveGoodReadings: 0,
+          hasUnresolved60sAlert: false,
         );
         notifyListeners();
       }
@@ -384,6 +464,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         _patients[index] = p.copyWith(
           sessionStatus: 'Completed',
           deviceId: 'N/A',
+          sessionAlertCount: 0,
+          consecutiveGoodReadings: 0,
+          hasUnresolved60sAlert: false,
         );
       }
       if (targetDevId.isNotEmpty && targetDevId != 'N/A') {
